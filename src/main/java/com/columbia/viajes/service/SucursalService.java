@@ -4,6 +4,7 @@
  */
 package com.columbia.viajes.service;
 
+import com.columbia.viajes.dto.SucursalRequest;
 import com.columbia.viajes.model.Sucursal;
 import com.columbia.viajes.repository.SucursalRepository;
 import jakarta.transaction.Transactional;
@@ -32,37 +33,33 @@ public class SucursalService {
     }
     
     @Transactional
-    public Sucursal crear(Sucursal sucursal){
-        sucursal.setId(null);
-        return sucursalRepository.save(sucursal);
+    public Sucursal crear(SucursalRequest request){
+        Sucursal sucursalNueva = new Sucursal();
+        sucursalNueva.setDireccion(request.direccion());
+        sucursalNueva.setEmail(request.email());
+        sucursalNueva.setTelefono(request.telefono());
+        
+        return sucursalRepository.save(sucursalNueva);
     }
     
     @Transactional
-    public Optional<Sucursal> actualizar(Integer id, Sucursal datos) {
-        validar(datos);
-        return sucursalRepository.findById(id).map(s -> {
-            s.setDireccion(datos.getDireccion());
-            s.setEmail(datos.getEmail());
-            s.setTelefono(datos.getTelefono());
-            return sucursalRepository.save(s);
-        });
+    public Optional<Sucursal> actualizar(Integer id, SucursalRequest request) {
+        return sucursalRepository.findById(id)
+                .map(s -> {
+                    s.setDireccion(request.direccion());
+                    s.setEmail(request.email());
+                    s.setTelefono(request.telefono());
+            
+                    return sucursalRepository.save(s);
+                });
     }
 
     @Transactional
-    public boolean eliminar(Integer id) {
-        if (!sucursalRepository.existsById(id)) {
-            return false;
-        }
-        sucursalRepository.deleteById(id);
-        return true;
-    }
-    
-    private void validar(Sucursal sucursal){
-        if(sucursal.getDireccion() == null || sucursal.getDireccion().isBlank()
-                || sucursal.getEmail() == null || sucursal.getEmail().isBlank()
-                || sucursal.getTelefono() == null || sucursal.getTelefono().isBlank()){
-            throw new IllegalArgumentException("Direccion, email y telefono son obligatorios");
-        }
+    public void eliminar(Integer id) {
+        Sucursal sucursal = sucursalRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontro la sucursal con la ID: " + id));
+                
+        sucursalRepository.delete(sucursal);
     }
     
 }

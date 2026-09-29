@@ -1,9 +1,12 @@
 package com.columbia.viajes.controller;
 
+import com.columbia.viajes.dto.CiudadRequest;
 import com.columbia.viajes.model.Ciudad;
 import com.columbia.viajes.service.CiudadService;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,8 +25,8 @@ public class CiudadController {
     private final CiudadService ciudadService;
     
     @GetMapping
-    public List<Ciudad> listar(){
-        return ciudadService.listar();
+    public ResponseEntity<List<Ciudad>> listar(){
+        return ResponseEntity.ok(ciudadService.listar());
     }
     
     @GetMapping("/{id}")
@@ -34,22 +37,22 @@ public class CiudadController {
     }
     
     @PostMapping
-    public Ciudad crear(@RequestBody Ciudad ciudad){
-        return ciudadService.crear(ciudad);
+    public ResponseEntity<Ciudad> crear(@Valid @RequestBody CiudadRequest request){
+        Ciudad ciudadNueva = ciudadService.crear(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ciudadNueva);
     }
     
     @PutMapping("/{id}")
-    public ResponseEntity<Ciudad> actualizar(@PathVariable Integer id, @RequestBody Ciudad datos){
-        return ciudadService.actualizar(id, datos)
+    public ResponseEntity<Ciudad> actualizar(@PathVariable Integer id, @Valid @RequestBody CiudadRequest request){
+        return ciudadService.actualizar(id, request)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
     
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id){
-        return ciudadService.eliminar(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+        ciudadService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
     
 }

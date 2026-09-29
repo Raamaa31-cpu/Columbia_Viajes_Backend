@@ -4,6 +4,7 @@
  */
 package com.columbia.viajes.service;
 
+import com.columbia.viajes.dto.CiudadRequest;
 import com.columbia.viajes.model.Ciudad;
 import com.columbia.viajes.repository.CiudadRepository;
 import jakarta.transaction.Transactional;
@@ -32,36 +33,38 @@ public class CiudadService {
     }
     
     @Transactional
-    public Ciudad crear(Ciudad ciudad){
-        validar(ciudad);
-        ciudad.setId(null);
-        return ciudadRepository.save(ciudad);
+    public Ciudad crear(CiudadRequest request){
+        
+        if(ciudadRepository.existsByNombre(request.nombre())){
+            throw new IllegalArgumentException("Ya existe una ciudad registrada con el nombre: " + request.nombre());
+        }
+        
+        Ciudad ciudadNueva = new Ciudad();
+        ciudadNueva.setNombre(request.nombre());
+        
+        return ciudadRepository.save(ciudadNueva);
     }
     
     @Transactional
-    public Optional<Ciudad> actualizar(Integer id, Ciudad ciudad){
-        validar(ciudad);
+    public Optional<Ciudad> actualizar(Integer id, CiudadRequest request){
         return ciudadRepository.findById(id)
                 .map(c -> {
-                    c.setNombre(ciudad.getNombre());
+                    if(!request.nombre().equals(c.getNombre()) && ciudadRepository.existsByNombre(request.nombre()) ){
+                        throw new IllegalArgumentException("Ya existe una ciudad registrada con el nombre: " + request.nombre());
+                    }
+                    
+                    c.setNombre(request.nombre());
                     
                     return ciudadRepository.save(c);
                 });
     }
     
     @Transactional
-    public boolean eliminar(Integer id){
-        if(!ciudadRepository.existsById(id)){
-            return false;
-        }
+    public void eliminar(Integer id){
+        Ciudad ciudad = ciudadRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontro la ciudad con ID: " + id));
         
         ciudadRepository.deleteById(id);
-        return true;
     }
-    
-    private void validar(Ciudad ciudad){
-        if(ciudad.getNombre() == null || ciudad.getNombre().isBlank()) {
-            throw new IllegalArgumentException("El nombre de la ciudad es obligatorio");
-        }
-    }
+
 }

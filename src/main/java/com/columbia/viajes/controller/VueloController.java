@@ -7,8 +7,10 @@ package com.columbia.viajes.controller;
 import com.columbia.viajes.dto.VueloRequest;
 import com.columbia.viajes.model.Vuelo;
 import com.columbia.viajes.service.VueloService;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,8 +34,8 @@ public class VueloController {
     private final VueloService vueloService;
     
     @GetMapping
-    public List<Vuelo> listar(){
-        return vueloService.listar();
+    public ResponseEntity<List<Vuelo>> listar(){
+        return ResponseEntity.ok(vueloService.listar());
     }
     
     @GetMapping("/{id}")
@@ -44,12 +46,13 @@ public class VueloController {
     }
     
     @PostMapping
-    public Vuelo crear(@RequestBody VueloRequest request){
-        return vueloService.crear(request);
+    public ResponseEntity<Vuelo> crear(@Valid @RequestBody VueloRequest request){
+        Vuelo vueloNuevo = vueloService.crear(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(vueloNuevo);
     }
     
     @PutMapping("/{id}")
-    public ResponseEntity<Vuelo> actualizar(@PathVariable Integer id, @RequestBody VueloRequest request){
+    public ResponseEntity<Vuelo> actualizar(@PathVariable Integer id, @Valid @RequestBody VueloRequest request){
         return vueloService.actualizar(id, request)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -57,9 +60,8 @@ public class VueloController {
     
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id){
-        return vueloService.eliminar(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+        vueloService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
     
 }

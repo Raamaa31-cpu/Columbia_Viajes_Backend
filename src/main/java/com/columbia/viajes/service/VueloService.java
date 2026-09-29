@@ -44,13 +44,13 @@ public class VueloService {
         Ciudad destino = ciudadRepository.findById(request.idCiudadDestino())
                 .orElseThrow(() -> new IllegalArgumentException("La ciudad de destino con ID " + request.idCiudadDestino() + " no existe"));
         
-        validar(request, origen, destino);
+        validarReglasDeVuelo(request, origen, destino);
         
         Vuelo vueloNuevo = new Vuelo();
         vueloNuevo.setCiudadOrigen(origen);
         vueloNuevo.setCiudadDestino(destino);
         vueloNuevo.setFechaSalida(request.fechaSalida());
-        vueloNuevo.setFechaLlegada(request.fechallegada());
+        vueloNuevo.setFechaLlegada(request.fechaLlegada());
         vueloNuevo.setPlazasTuristaTotales(request.plazasTuristaTotales());
         vueloNuevo.setPlazasPrimeraTotales(request.plazasPrimeraTotales());
 
@@ -59,21 +59,22 @@ public class VueloService {
     
     @Transactional
     public Optional<Vuelo> actualizar(Integer id, VueloRequest request){
-        Ciudad origen = ciudadRepository.findById(request.idCiudadOrigen())
-                .orElseThrow(() -> new IllegalArgumentException("La ciudad de origen con ID " + request.idCiudadOrigen() + " no existe"));
-        
-        Ciudad destino = ciudadRepository.findById(request.idCiudadDestino())
-                .orElseThrow(() -> new IllegalArgumentException("La ciudad de destino con ID " + request.idCiudadDestino() + " no existe"));
-        
-        validar(request, origen, destino);
         
         return vueloRepository.findById(id)
                 .map(v -> {
                     
+                    Ciudad origen = ciudadRepository.findById(request.idCiudadOrigen())
+                            .orElseThrow(() -> new IllegalArgumentException("La ciudad de origen con ID " + request.idCiudadOrigen() + " no existe"));
+
+                    Ciudad destino = ciudadRepository.findById(request.idCiudadDestino())
+                            .orElseThrow(() -> new IllegalArgumentException("La ciudad de destino con ID " + request.idCiudadDestino() + " no existe"));
+
+                    validarReglasDeVuelo(request, origen, destino);
+                    
                     v.setCiudadOrigen(origen);
                     v.setCiudadDestino(destino);
                     v.setFechaSalida(request.fechaSalida());
-                    v.setFechaLlegada(request.fechallegada());
+                    v.setFechaLlegada(request.fechaLlegada());
                     v.setPlazasTuristaTotales(request.plazasTuristaTotales());
                     v.setPlazasPrimeraTotales(request.plazasPrimeraTotales());
                     
@@ -82,22 +83,20 @@ public class VueloService {
     }
     
     @Transactional
-    public boolean eliminar(Integer id){
-        if(!vueloRepository.existsById(id)){
-            return false;
-        }
+    public void eliminar(Integer id){
+        Vuelo vuelo = vueloRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("No existe un vuelo con la ID: " + id));
         
-        vueloRepository.deleteById(id);
-        return true;
+        vueloRepository.delete(vuelo);
     }
     
-    private void validar(VueloRequest request, Ciudad origen, Ciudad destino){
+    private void validarReglasDeVuelo(VueloRequest request, Ciudad origen, Ciudad destino){
         
         if(origen.getId().equals(destino.getId())){
             throw new IllegalArgumentException("Las ciudades de origen y destino no pueden ser las mismas");
         }
         
-        if(!request.fechallegada().isAfter(request.fechaSalida())){
+        if(!request.fechaLlegada().isAfter(request.fechaSalida())){
             throw new IllegalArgumentException("La fecha de llegada debe ser posterior a la salida");
         }
         

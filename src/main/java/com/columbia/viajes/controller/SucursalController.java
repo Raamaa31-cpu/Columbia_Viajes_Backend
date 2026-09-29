@@ -9,10 +9,13 @@ package com.columbia.viajes.controller;
  * @author Ramiro
  */
 
+import com.columbia.viajes.dto.SucursalRequest;
 import com.columbia.viajes.model.Sucursal;
 import com.columbia.viajes.service.SucursalService;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,8 +34,8 @@ public class SucursalController {
     private final SucursalService sucursalService;
     
     @GetMapping
-    public List<Sucursal> listar(){
-        return sucursalService.listar();
+    public ResponseEntity<List<Sucursal>> listar(){
+        return ResponseEntity.ok(sucursalService.listar());
     } 
     
     @GetMapping("/{id}")
@@ -43,21 +46,21 @@ public class SucursalController {
     }
     
     @PostMapping
-    public Sucursal crear(@RequestBody Sucursal sucursal){
-        return sucursalService.crear(sucursal);
+    public ResponseEntity<Sucursal> crear(@Valid @RequestBody SucursalRequest request){
+        Sucursal sucursalNueva = sucursalService.crear(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(sucursalNueva);
     }
     
     @PutMapping("/{id}")
-    public ResponseEntity<Sucursal> actualizar(@PathVariable Integer id, @RequestBody Sucursal datos){
-        return sucursalService.actualizar(id, datos)
+    public ResponseEntity<Sucursal> actualizar(@PathVariable Integer id, @Valid @RequestBody SucursalRequest request){
+        return sucursalService.actualizar(id, request)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
     
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id){
-        return sucursalService.eliminar(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+        sucursalService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }

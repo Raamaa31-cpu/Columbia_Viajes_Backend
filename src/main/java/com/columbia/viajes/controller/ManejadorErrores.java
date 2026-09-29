@@ -27,7 +27,7 @@ public class ManejadorErrores {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<String> manejarIntegridadDeDatos(DataIntegrityViolationException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body("No se puede eliminar el registro porque está siendo utilizado por otra entidad (ej: El vuelo pertenece a un paquete).");
+                .body("No se puede realizar la operacion: el regustro esta siendo utilizado por otra entidad o viola una regla de unicidad.");
     }    
     
 }
