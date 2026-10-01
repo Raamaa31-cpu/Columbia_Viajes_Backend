@@ -1,11 +1,7 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.columbia.viajes.controller;
 
-import com.columbia.viajes.dto.VueloRequest;
-import com.columbia.viajes.model.Vuelo;
+import com.columbia.viajes.dto.request.VueloRequest;
+import com.columbia.viajes.dto.response.VueloResponse;
 import com.columbia.viajes.service.VueloService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -21,11 +17,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- *
- * @author Ramiro
- */
-
 @RestController
 @RequestMapping("/api/vuelos")
 @RequiredArgsConstructor
@@ -34,25 +25,25 @@ public class VueloController {
     private final VueloService vueloService;
     
     @GetMapping
-    public ResponseEntity<List<Vuelo>> listar(){
+    public ResponseEntity<List<VueloResponse>> listar(){
         return ResponseEntity.ok(vueloService.listar());
     }
     
     @GetMapping("/{id}")
-    public ResponseEntity<Vuelo> obtener(@PathVariable Integer id){
+    public ResponseEntity<VueloResponse> obtener(@PathVariable Integer id){
         return vueloService.obtener(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
     
     @PostMapping
-    public ResponseEntity<Vuelo> crear(@Valid @RequestBody VueloRequest request){
-        Vuelo vueloNuevo = vueloService.crear(request);
+    public ResponseEntity<VueloResponse> crear(@Valid @RequestBody VueloRequest request){
+        VueloResponse vueloNuevo = vueloService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(vueloNuevo);
     }
     
     @PutMapping("/{id}")
-    public ResponseEntity<Vuelo> actualizar(@PathVariable Integer id, @Valid @RequestBody VueloRequest request){
+    public ResponseEntity<VueloResponse> actualizar(@PathVariable Integer id, @Valid @RequestBody VueloRequest request){
         return vueloService.actualizar(id, request)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

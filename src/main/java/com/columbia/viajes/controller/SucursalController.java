@@ -1,16 +1,7 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.columbia.viajes.controller;
 
-/**
- *
- * @author Ramiro
- */
-
-import com.columbia.viajes.dto.SucursalRequest;
-import com.columbia.viajes.model.Sucursal;
+import com.columbia.viajes.dto.request.SucursalRequest;
+import com.columbia.viajes.dto.response.SucursalResponse;
 import com.columbia.viajes.service.SucursalService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -34,25 +25,25 @@ public class SucursalController {
     private final SucursalService sucursalService;
     
     @GetMapping
-    public ResponseEntity<List<Sucursal>> listar(){
+    public ResponseEntity<List<SucursalResponse>> listar(){
         return ResponseEntity.ok(sucursalService.listar());
     } 
     
     @GetMapping("/{id}")
-    public ResponseEntity<Sucursal> obtener(@PathVariable Integer id){
+    public ResponseEntity<SucursalResponse> obtener(@PathVariable Integer id){
         return sucursalService.obtener(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
     
     @PostMapping
-    public ResponseEntity<Sucursal> crear(@Valid @RequestBody SucursalRequest request){
-        Sucursal sucursalNueva = sucursalService.crear(request);
+    public ResponseEntity<SucursalResponse> crear(@Valid @RequestBody SucursalRequest request){
+        SucursalResponse sucursalNueva = sucursalService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(sucursalNueva);
     }
     
     @PutMapping("/{id}")
-    public ResponseEntity<Sucursal> actualizar(@PathVariable Integer id, @Valid @RequestBody SucursalRequest request){
+    public ResponseEntity<SucursalResponse> actualizar(@PathVariable Integer id, @Valid @RequestBody SucursalRequest request){
         return sucursalService.actualizar(id, request)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

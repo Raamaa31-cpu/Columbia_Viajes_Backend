@@ -1,10 +1,8 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.columbia.viajes.service;
 
-import com.columbia.viajes.dto.HotelRequest;
+import com.columbia.viajes.dto.request.HotelRequest;
+import com.columbia.viajes.dto.response.HotelResponse;
+import com.columbia.viajes.mapper.HotelMapper;
 import com.columbia.viajes.model.Ciudad;
 import com.columbia.viajes.model.Hotel;
 import com.columbia.viajes.repository.CiudadRepository;
@@ -15,54 +13,48 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-/**
- *
- * @author Ramiro
- */
-
 @Service
 @RequiredArgsConstructor
 public class HotelService {
     private final HotelRepository hotelRepository;
     private final CiudadRepository ciudadRepository;
+    
+    private final HotelMapper hotelMapper;
 
-    public List<Hotel> listar() {
-        return hotelRepository.findAll();
+    public List<HotelResponse> listar() {
+        return hotelRepository.findAll()
+                .stream()
+                .map(hotelMapper::toHotelResponse)
+                .toList();
     }
 
-    public Optional<Hotel> obtener(Integer id) {
-        return hotelRepository.findById(id);
+    public Optional<HotelResponse> obtener(Integer id) {
+        return hotelRepository.findById(id)
+                .map(hotelMapper::toHotelResponse);
     }
 
     @Transactional
-    public Hotel crear(HotelRequest request) {
+    public HotelResponse crear(HotelRequest request) {
         Ciudad ciudad = ciudadRepository.findById(request.idCiudad())
                 .orElseThrow(() -> new IllegalArgumentException("La ciudad con ID " + request.idCiudad() + " no existe."));
 
-        Hotel nuevoHotel = new Hotel();
-        nuevoHotel.setNombre(request.nombre());
-        nuevoHotel.setDireccion(request.direccion());
-        nuevoHotel.setTelefono(request.telefono());
-        nuevoHotel.setPlazasTotales(request.plazasTotales());
-        nuevoHotel.setCiudad(ciudad);
+        Hotel hotelNuevo = hotelMapper.toHotel(request, ciudad);
 
-        return hotelRepository.save(nuevoHotel);
+        Hotel hotelGuardado = hotelRepository.save(hotelNuevo);
+        return hotelMapper.toHotelResponse(hotelGuardado);
     }
 
     @Transactional
-    public Optional<Hotel> actualizar(Integer id, HotelRequest request) {
+    public Optional<HotelResponse> actualizar(Integer id, HotelRequest request) {
         return hotelRepository.findById(id)
-                .map(hotelExistente -> {
+                .map(h -> {
                     Ciudad ciudad = ciudadRepository.findById(request.idCiudad())
                             .orElseThrow(() -> new IllegalArgumentException("La ciudad con ID " + request.idCiudad() + " no existe."));
+                    
+                    hotelMapper.actualizarHotel(request, ciudad, h);
 
-                    hotelExistente.setNombre(request.nombre());
-                    hotelExistente.setDireccion(request.direccion());
-                    hotelExistente.setTelefono(request.telefono());
-                    hotelExistente.setPlazasTotales(request.plazasTotales());
-                    hotelExistente.setCiudad(ciudad);
-
-                    return hotelRepository.save(hotelExistente);
+                    Hotel hotelActualizado = hotelRepository.save(h);
+                    return hotelMapper.toHotelResponse(hotelActualizado);
                 });
     }
 

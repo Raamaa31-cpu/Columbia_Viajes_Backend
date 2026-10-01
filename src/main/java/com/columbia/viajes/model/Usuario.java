@@ -31,4 +31,8 @@ public class Usuario {
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime fechaCreacion;
+    
+    @ManyToOne
+    @JoinColumn(name = "id_sucursal")
+    private Sucursal sucursal;
 }

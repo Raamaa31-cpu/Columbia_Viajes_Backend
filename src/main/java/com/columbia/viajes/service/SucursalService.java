@@ -1,10 +1,8 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.columbia.viajes.service;
 
-import com.columbia.viajes.dto.SucursalRequest;
+import com.columbia.viajes.dto.request.SucursalRequest;
+import com.columbia.viajes.dto.response.SucursalResponse;
+import com.columbia.viajes.mapper.SucursalMapper;
 import com.columbia.viajes.model.Sucursal;
 import com.columbia.viajes.repository.SucursalRepository;
 import jakarta.transaction.Transactional;
@@ -13,44 +11,43 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-/**
- *
- * @author Ramiro
- */
-
 @Service
 @RequiredArgsConstructor
 public class SucursalService {
     
     private final SucursalRepository sucursalRepository;
+    private final SucursalMapper sucursalMapper;
     
-    public List<Sucursal> listar(){
-        return sucursalRepository.findAll();
+    public List<SucursalResponse> listar(){
+        return sucursalRepository.findAll()
+                .stream()
+                .map(sucursalMapper::toSucursalResponse)
+                .toList();
     }
     
-    public Optional<Sucursal> obtener(Integer id){
-        return sucursalRepository.findById(id);
+    public Optional<SucursalResponse> obtener(Integer id){
+        return sucursalRepository.findById(id)
+                .map(sucursalMapper::toSucursalResponse);
     }
     
     @Transactional
-    public Sucursal crear(SucursalRequest request){
-        Sucursal sucursalNueva = new Sucursal();
-        sucursalNueva.setDireccion(request.direccion());
-        sucursalNueva.setEmail(request.email());
-        sucursalNueva.setTelefono(request.telefono());
+    public SucursalResponse crear(SucursalRequest request){
         
-        return sucursalRepository.save(sucursalNueva);
+        Sucursal sucursalNueva = sucursalMapper.toSucursal(request);
+        
+        Sucursal sucursalGuardada = sucursalRepository.save(sucursalNueva);
+        return sucursalMapper.toSucursalResponse(sucursalGuardada);
     }
     
     @Transactional
-    public Optional<Sucursal> actualizar(Integer id, SucursalRequest request) {
+    public Optional<SucursalResponse> actualizar(Integer id, SucursalRequest request) {
         return sucursalRepository.findById(id)
                 .map(s -> {
-                    s.setDireccion(request.direccion());
-                    s.setEmail(request.email());
-                    s.setTelefono(request.telefono());
-            
-                    return sucursalRepository.save(s);
+                    
+                    sucursalMapper.actualizarSucursal(request, s);
+                    
+                    Sucursal sucursalActualizada = sucursalRepository.save(s);
+                    return sucursalMapper.toSucursalResponse(sucursalActualizada);
                 });
     }
 

@@ -1,7 +1,7 @@
 package com.columbia.viajes.controller;
 
-import com.columbia.viajes.dto.CiudadRequest;
-import com.columbia.viajes.model.Ciudad;
+import com.columbia.viajes.dto.request.CiudadRequest;
+import com.columbia.viajes.dto.response.CiudadResponse;
 import com.columbia.viajes.service.CiudadService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -25,25 +25,25 @@ public class CiudadController {
     private final CiudadService ciudadService;
     
     @GetMapping
-    public ResponseEntity<List<Ciudad>> listar(){
+    public ResponseEntity<List<CiudadResponse>> listar(){
         return ResponseEntity.ok(ciudadService.listar());
     }
     
     @GetMapping("/{id}")
-    public ResponseEntity<Ciudad> obtener(@PathVariable Integer id){
+    public ResponseEntity<CiudadResponse> obtener(@PathVariable Integer id){
         return ciudadService.obtener(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
     
     @PostMapping
-    public ResponseEntity<Ciudad> crear(@Valid @RequestBody CiudadRequest request){
-        Ciudad ciudadNueva = ciudadService.crear(request);
+    public ResponseEntity<CiudadResponse> crear(@Valid @RequestBody CiudadRequest request){
+        CiudadResponse ciudadNueva = ciudadService.crear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ciudadNueva);
     }
     
     @PutMapping("/{id}")
-    public ResponseEntity<Ciudad> actualizar(@PathVariable Integer id, @Valid @RequestBody CiudadRequest request){
+    public ResponseEntity<CiudadResponse> actualizar(@PathVariable Integer id, @Valid @RequestBody CiudadRequest request){
         return ciudadService.actualizar(id, request)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.columbia.viajes.controller;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -9,11 +5,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-/**
- *
- * @author Ramiro
- */
 
 @RestControllerAdvice
 public class ManejadorErrores {
@@ -27,7 +18,7 @@ public class ManejadorErrores {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<String> manejarIntegridadDeDatos(DataIntegrityViolationException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body("No se puede realizar la operacion: el regustro esta siendo utilizado por otra entidad o viola una regla de unicidad.");
+                .body("No se puede realizar la operacion: el registro esta siendo utilizado por otra entidad o viola una regla de unicidad.");
     }    
     
 }
