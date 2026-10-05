@@ -1,5 +1,6 @@
 package com.columbia.viajes.service;
 
+import com.columbia.viajes.dto.request.UsuarioActualizacionRequest;
 import com.columbia.viajes.dto.request.UsuarioRequest;
 import com.columbia.viajes.dto.response.UsuarioResponse;
 import com.columbia.viajes.mapper.UsuarioMapper;
@@ -13,6 +14,7 @@ import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,6 +25,8 @@ public class UsuarioService {
     private final RolRepository rolRepository;
     private final SucursalRepository sucursalRepository;
     private final UsuarioMapper usuarioMapper;
+    
+    private final PasswordEncoder passwordEncoder;
 
     public List<UsuarioResponse> listar() {
         return usuarioRepository.findAll()
@@ -45,15 +49,20 @@ public class UsuarioService {
         Rol rol = rolRepository.findById(request.idRol())
                 .orElseThrow(() -> new IllegalArgumentException("El rol con ID " + request.idRol() + " no existe."));
 
-        Sucursal sucursal = obtenerSucursalVendedor(request, rol);
+        Sucursal sucursal = obtenerSucursalVendedor(request.idSucursal(), rol);
 
         Usuario usuarioNuevo = usuarioMapper.toUsuario(request, rol, sucursal);
+        
+        usuarioNuevo.setContrasenia(
+                passwordEncoder.encode(request.contrasenia())
+        );
+        
         Usuario usuarioGuardado = usuarioRepository.save(usuarioNuevo);
         return usuarioMapper.toUsuarioResponse(usuarioGuardado);
     }
 
     @Transactional
-    public Optional<UsuarioResponse> actualizar(Integer id, UsuarioRequest request) {
+    public Optional<UsuarioResponse> actualizar(Integer id, UsuarioActualizacionRequest request) {
         return usuarioRepository.findById(id)
                 .map(usuario -> {
                     if (!request.nombre().equals(usuario.getNombre()) 
@@ -64,7 +73,7 @@ public class UsuarioService {
                     Rol rol = rolRepository.findById(request.idRol())
                             .orElseThrow(() -> new IllegalArgumentException("El rol con ID " + request.idRol() + " no existe."));
 
-                    Sucursal sucursal = obtenerSucursalVendedor(request, rol);
+                    Sucursal sucursal = obtenerSucursalVendedor(request.idSucursal(), rol);
 
                     usuarioMapper.actualizarUsuario(request, rol, sucursal, usuario);
 
@@ -81,14 +90,14 @@ public class UsuarioService {
         usuarioRepository.delete(usuario);
     }
     
-    private Sucursal obtenerSucursalVendedor(UsuarioRequest request, Rol rol){
-        if (request.idSucursal() != null) {
+    private Sucursal obtenerSucursalVendedor(Integer idSucursal, Rol rol){
+        if (idSucursal != null) {
             if (!"Vendedor".equalsIgnoreCase(rol.getNombre())) {
                 throw new IllegalArgumentException("Solo los usuarios con rol Vendedor pueden tener una sucursal asignada.");
             }
             
-            return sucursalRepository.findById(request.idSucursal())
-                    .orElseThrow(() -> new IllegalArgumentException("La sucursal con ID " + request.idSucursal() + " no existe."));
+            return sucursalRepository.findById(idSucursal)
+                    .orElseThrow(() -> new IllegalArgumentException("La sucursal con ID " + idSucursal + " no existe."));
         }
         
         return null;

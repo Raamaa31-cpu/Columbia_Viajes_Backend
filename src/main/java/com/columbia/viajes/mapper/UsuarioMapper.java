@@ -1,5 +1,6 @@
 package com.columbia.viajes.mapper;
 
+import com.columbia.viajes.dto.request.UsuarioActualizacionRequest;
 import com.columbia.viajes.dto.request.UsuarioRequest;
 import com.columbia.viajes.dto.response.UsuarioResponse;
 import com.columbia.viajes.model.Rol;
@@ -13,6 +14,7 @@ import org.mapstruct.MappingTarget;
 public interface UsuarioMapper {
 
     @Mapping(source = "rol.nombre", target = "rolNombre")
+    @Mapping(source = "sucursal.id", target = "sucursalId")
     UsuarioResponse toUsuarioResponse(Usuario usuario);
     
     @Mapping(target = "id", ignore = true)
@@ -27,8 +29,8 @@ public interface UsuarioMapper {
     @Mapping(target = "fechaCreacion", ignore = true)
     @Mapping(target = "rol", source = "rol")
     @Mapping(target = "nombre", source = "request.nombre")
-    @Mapping(target = "contrasenia", source = "request.contrasenia")
+    @Mapping(target = "contrasenia", ignore = true)
     @Mapping(target = "sucursal", source = "sucursal")
-    void actualizarUsuario(UsuarioRequest request, Rol rol, Sucursal sucursal, @MappingTarget Usuario usuario);
+    void actualizarUsuario(UsuarioActualizacionRequest request, Rol rol, Sucursal sucursal, @MappingTarget Usuario usuario);
     
 }
