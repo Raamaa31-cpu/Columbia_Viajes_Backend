@@ -131,6 +131,9 @@
                                         <version>0.2.0</version>
                                     </path>
                                 </annotationProcessorPaths>
+                                   <compilerArgs>
+                                          <arg>-Xlint</arg>
+                                   </compilerArgs>
                             </configuration>
                         </plugin>
 		</plugins>

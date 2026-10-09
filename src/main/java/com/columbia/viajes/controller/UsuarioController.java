@@ -2,6 +2,7 @@ package com.columbia.viajes.controller;
 
 import com.columbia.viajes.dto.request.UsuarioRequest;
 import com.columbia.viajes.dto.response.UsuarioResponse;
+import com.columbia.viajes.dto.request.UsuarioActualizacionRequest;
 import com.columbia.viajes.service.UsuarioService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -36,7 +37,7 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Integer id, @Valid @RequestBody UsuarioRequest request) {
+    public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Integer id, @Valid @RequestBody UsuarioActualizacionRequest request) {
         return usuarioService.actualizar(id, request)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
