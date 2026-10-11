@@ -20,6 +20,7 @@ public interface PaqueteReservaMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "fechaReserva", ignore = true)
+    @Mapping(target = "precioReserva", ignore = true)
     @Mapping(target = "paquete", source = "paquete")
     @Mapping(target = "turista", source = "turista")
     @Mapping(target = "vendedor", source = "vendedor")
@@ -27,6 +28,7 @@ public interface PaqueteReservaMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "fechaReserva", ignore = true)
+    @Mapping(target = "precioReserva", ignore = true)
     @Mapping(target = "paquete", source = "paquete")
     @Mapping(target = "turista", source = "turista")
     @Mapping(target = "vendedor", source = "vendedor")

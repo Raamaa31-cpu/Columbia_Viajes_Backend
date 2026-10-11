@@ -1,13 +1,17 @@
+-- Estructura y datos actuales de columbia_viajes, exportados el 11/10/2026.
+-- Incluye las contrasenias tal como estan almacenadas en la base (hashes BCrypt).
+-- Al importar, este archivo reemplaza las tablas existentes de la base seleccionada.
+
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
--- Host: localhost    Database: columbia_viajes
+-- Host: 127.0.0.1    Database: columbia_viajes
 -- ------------------------------------------------------
 -- Server version	8.0.46
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8 */;
+/*!50503 SET NAMES utf8mb4 */;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
@@ -33,10 +37,13 @@ CREATE TABLE `ciudades` (
 --
 -- Dumping data for table `ciudades`
 --
+-- ORDER BY:  `id`
 
 LOCK TABLES `ciudades` WRITE;
 /*!40000 ALTER TABLE `ciudades` DISABLE KEYS */;
-INSERT INTO `ciudades` VALUES (1,'CABA'),(3,'Cusco'),(2,'Rio de Janeiro');
+INSERT INTO `ciudades` (`id`, `nombre`) VALUES (1,'CABA');
+INSERT INTO `ciudades` (`id`, `nombre`) VALUES (2,'Rio de Janeiro');
+INSERT INTO `ciudades` (`id`, `nombre`) VALUES (3,'Cusco');
 /*!40000 ALTER TABLE `ciudades` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -63,6 +70,7 @@ CREATE TABLE `hoteles` (
 --
 -- Dumping data for table `hoteles`
 --
+-- ORDER BY:  `id`
 
 LOCK TABLES `hoteles` WRITE;
 /*!40000 ALTER TABLE `hoteles` DISABLE KEYS */;
@@ -106,6 +114,7 @@ CREATE TABLE `paquetes` (
 --
 -- Dumping data for table `paquetes`
 --
+-- ORDER BY:  `id`
 
 LOCK TABLES `paquetes` WRITE;
 /*!40000 ALTER TABLE `paquetes` DISABLE KEYS */;
@@ -142,6 +151,7 @@ CREATE TABLE `paquetes_reservas` (
 --
 -- Dumping data for table `paquetes_reservas`
 --
+-- ORDER BY:  `id`
 
 LOCK TABLES `paquetes_reservas` WRITE;
 /*!40000 ALTER TABLE `paquetes_reservas` DISABLE KEYS */;
@@ -166,10 +176,14 @@ CREATE TABLE `roles` (
 --
 -- Dumping data for table `roles`
 --
+-- ORDER BY:  `id`
 
 LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
-INSERT INTO `roles` VALUES (3,'Administrador'),(1,'Cliente'),(4,'Dueño'),(2,'Vendedor');
+INSERT INTO `roles` (`id`, `nombre`) VALUES (1,'Cliente');
+INSERT INTO `roles` (`id`, `nombre`) VALUES (2,'Vendedor');
+INSERT INTO `roles` (`id`, `nombre`) VALUES (3,'Administrador');
+INSERT INTO `roles` (`id`, `nombre`) VALUES (4,'Dueño');
 /*!40000 ALTER TABLE `roles` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -186,15 +200,18 @@ CREATE TABLE `sucursales` (
   `email` varchar(120) NOT NULL,
   `telefono` varchar(30) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Dumping data for table `sucursales`
 --
+-- ORDER BY:  `id`
 
 LOCK TABLES `sucursales` WRITE;
 /*!40000 ALTER TABLE `sucursales` DISABLE KEYS */;
+INSERT INTO `sucursales` (`id`, `direccion`, `email`, `telefono`) VALUES (2,'dire1','suc1@gmail.com','1112345678');
+INSERT INTO `sucursales` (`id`, `direccion`, `email`, `telefono`) VALUES (3,'dire2','suc2@gmail.com','1187654321');
 /*!40000 ALTER TABLE `sucursales` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -220,6 +237,7 @@ CREATE TABLE `turistas` (
 --
 -- Dumping data for table `turistas`
 --
+-- ORDER BY:  `id`
 
 LOCK TABLES `turistas` WRITE;
 /*!40000 ALTER TABLE `turistas` DISABLE KEYS */;
@@ -246,15 +264,22 @@ CREATE TABLE `usuarios` (
   KEY `fk_usuario_sucursal` (`id_sucursal`),
   CONSTRAINT `fk_usuario_sucursal` FOREIGN KEY (`id_sucursal`) REFERENCES `sucursales` (`id`),
   CONSTRAINT `fk_usuarios_rol` FOREIGN KEY (`id_rol`) REFERENCES `roles` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Dumping data for table `usuarios`
 --
+-- ORDER BY:  `id`
 
 LOCK TABLES `usuarios` WRITE;
 /*!40000 ALTER TABLE `usuarios` DISABLE KEYS */;
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (1,'prueba_security','$2a$10$Hi7yG0TC2LJlsUMk6uHr.uJHBt/I6E87Ns19FGRkBQsKPlJ3OtgrG',1,'2026-10-07 00:45:54',NULL);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (2,'prueba_admin','$2a$10$OfmWXeOf/c2c9f575AnHcu24YHuV1KnVy143ZW/sP0WHaG6KzEKQ2',3,'2026-10-09 00:32:48',NULL);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (3,'prueba_duenio','$2a$10$Hi7yG0TC2LJlsUMk6uHr.uJHBt/I6E87Ns19FGRkBQsKPlJ3OtgrG',4,'2026-10-09 00:32:48',NULL);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (4,'vendedor_a1','$2a$10$BQr88dfKVuuab6X8QF.DaOgjoJL8o4dgJdYLB.7fQlzkSaoWo43GS',2,'2026-10-10 16:57:51',2);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (5,'vendedor_a2','$2a$10$zSCxe9FLxQX8IyNlAkPx2OlqwJGhUv6WURi.WmYOfPgCbCYBmtSjK',2,'2026-10-10 16:58:10',2);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (6,'vendedor_b1','$2a$10$L7NbMgOc.bEGkDayIRJYruAyQacZ0njw0iaHgivc.CT4xRXDyOmN.',2,'2026-10-10 16:58:20',3);
 /*!40000 ALTER TABLE `usuarios` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -286,11 +311,20 @@ CREATE TABLE `vuelos` (
 --
 -- Dumping data for table `vuelos`
 --
+-- ORDER BY:  `id`
 
 LOCK TABLES `vuelos` WRITE;
 /*!40000 ALTER TABLE `vuelos` DISABLE KEYS */;
 /*!40000 ALTER TABLE `vuelos` ENABLE KEYS */;
 UNLOCK TABLES;
+
+--
+-- Dumping events for database 'columbia_viajes'
+--
+
+--
+-- Dumping routines for database 'columbia_viajes'
+--
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -301,4 +335,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-09-30 19:49:14
+-- Dump completed on 2026-10-11 18:49:49

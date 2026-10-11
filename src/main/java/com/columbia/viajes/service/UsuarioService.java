@@ -1,5 +1,6 @@
 package com.columbia.viajes.service;
 
+import com.columbia.viajes.dto.request.CambioContraseniaRequest;
 import com.columbia.viajes.dto.request.UsuarioActualizacionRequest;
 import com.columbia.viajes.dto.request.UsuarioRequest;
 import com.columbia.viajes.dto.response.UsuarioResponse;
@@ -10,10 +11,12 @@ import com.columbia.viajes.model.Usuario;
 import com.columbia.viajes.repository.RolRepository;
 import com.columbia.viajes.repository.SucursalRepository;
 import com.columbia.viajes.repository.UsuarioRepository;
+import com.columbia.viajes.security.service.UsuarioActualService;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -24,10 +27,13 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final SucursalRepository sucursalRepository;
+    
     private final UsuarioMapper usuarioMapper;
     
     private final PasswordEncoder passwordEncoder;
 
+    private final UsuarioActualService usuarioActualService;
+    
     public List<UsuarioResponse> listar() {
         return usuarioRepository.findAll()
                 .stream()
@@ -35,6 +41,45 @@ public class UsuarioService {
                 .toList();
     }
 
+    public List<UsuarioResponse> listarVendedores(){
+        
+        Usuario usuarioActual = usuarioActualService.obtener();
+        String rol = usuarioActual.getRol().getNombre();
+        
+        List<Usuario> vendedores;
+        
+        if(rol.equals("Administrador") || rol.equals("Dueño")){
+            vendedores = usuarioRepository.findByRol_Nombre("Vendedor");
+        } else if(rol.equals("Vendedor") && usuarioActual.getSucursal() != null){
+            vendedores = usuarioRepository.findByRol_NombreAndSucursal_Id("Vendedor", usuarioActual.getSucursal().getId());
+        } else {
+            throw new AccessDeniedException("Acceso denegado");
+        }
+        
+        return vendedores
+                .stream()
+                .map(usuarioMapper::toUsuarioResponse)
+                .toList();
+    }
+    
+    public List<UsuarioResponse> listarClientes(){
+        Usuario usuarioActual = usuarioActualService.obtener();
+        String rol = usuarioActual.getRol().getNombre();
+        
+        List<Usuario> clientes;
+        
+        if(rol.equals("Administrador") || rol.equals("Dueño") || (rol.equals("Vendedor") && usuarioActual.getSucursal() != null)){
+            clientes = usuarioRepository.findByRol_Nombre("Cliente");
+        }else {
+            throw new AccessDeniedException("Acceso denegado");
+        }
+        
+        return clientes
+        .stream()
+        .map(usuarioMapper::toUsuarioResponse)
+        .toList();
+    }    
+    
     public Optional<UsuarioResponse> obtener(Integer id) {
         return usuarioRepository.findById(id)
                 .map(usuarioMapper::toUsuarioResponse);
@@ -80,6 +125,25 @@ public class UsuarioService {
                     Usuario usuarioActualizado = usuarioRepository.save(usuario);
                     return usuarioMapper.toUsuarioResponse(usuarioActualizado);
                 });
+    }
+    
+    @Transactional
+    public void cambiarContrasenia(CambioContraseniaRequest request){
+        Usuario usuarioActual = usuarioActualService.obtener();
+        
+        boolean coincide = passwordEncoder.matches(
+                request.contraseniaActual(),
+                usuarioActual.getContrasenia()
+        );
+        
+        if(!coincide){
+            throw new IllegalArgumentException("La contraseña actual es incorrecta");
+        }
+        
+        String nuevoHash = passwordEncoder.encode(request.contraseniaNueva());
+        usuarioActual.setContrasenia(nuevoHash);
+        
+        usuarioRepository.save(usuarioActual);
     }
 
     @Transactional

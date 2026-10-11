@@ -1,5 +1,6 @@
 package com.columbia.viajes.controller;
 
+import com.columbia.viajes.dto.request.UsuarioActualizacionRequest;
 import com.columbia.viajes.dto.request.UsuarioRequest;
 import com.columbia.viajes.dto.response.UsuarioResponse;
 import com.columbia.viajes.service.UsuarioService;
@@ -21,7 +22,17 @@ public class UsuarioController {
     public ResponseEntity<List<UsuarioResponse>> listar() {
         return ResponseEntity.ok(usuarioService.listar());
     }
+    
+    @GetMapping("/vendedores")
+    public ResponseEntity<List<UsuarioResponse>> listarVendedores(){
+        return ResponseEntity.ok(usuarioService.listarVendedores());
+    }
 
+    @GetMapping("/clientes")
+    public ResponseEntity<List<UsuarioResponse>> listarClientes(){
+        return ResponseEntity.ok(usuarioService.listarClientes());
+    }    
+    
     @GetMapping("/{id}")
     public ResponseEntity<UsuarioResponse> obtener(@PathVariable Integer id) {
         return usuarioService.obtener(id)
@@ -36,7 +47,7 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Integer id, @Valid @RequestBody UsuarioRequest request) {
+    public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Integer id, @Valid @RequestBody UsuarioActualizacionRequest request) {
         return usuarioService.actualizar(id, request)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
