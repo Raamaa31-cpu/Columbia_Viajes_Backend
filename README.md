@@ -182,6 +182,19 @@ Content-Type: application/json
 
 La API usa autenticación sin sesión HTTP (`STATELESS`). En cada solicitud con JWT, verifica la firma y el vencimiento, carga la cuenta y el rol actual desde MySQL, y compara la versión del token con la del usuario. Los tokens sin el claim `versionAutenticacion` también se rechazan.
 
+### Cierre de sesión en todos los dispositivos
+
+```http
+POST /api/auth/logout
+Authorization: Bearer JWT_GENERADO
+```
+
+La solicitud no lleva cuerpo. En Postman, elegí **Body → none**.
+
+El endpoint obtiene al usuario autenticado, aumenta `version_autenticacion` y devuelve `204 No Content`. Todos los JWT anteriores de esa cuenta quedan revocados, incluido el utilizado para cerrar sesión y los de otros dispositivos. La contraseña se conserva; un nuevo login permite obtener otro JWT.
+
+El frontend debe eliminar también su copia del token al finalizar. Este logout tiene alcance global; no hay cierre individual por dispositivo. Conocer la versión o editarla dentro del JWT no permite acceder: una modificación del contenido invalida la firma verificada por el servidor.
+
 ## 👥 Permisos actuales
 
 Cada usuario tiene un único rol: `Administrador`, `Dueño`, `Vendedor` o `Cliente`.
@@ -198,6 +211,7 @@ Cada usuario tiene un único rol: `Administrador`, `Dueño`, `Vendedor` o `Clien
 | Consultar roles | No | No | No | Sí |
 | Consultar, crear, editar y eliminar reservas | No | No | De su sucursal | De todas las sucursales |
 | Cambiar su propia contraseña | No | Sí | Sí | Sí |
+| Cerrar todas las sesiones de su cuenta | No | Sí | Sí | Sí |
 
 Administrador y Dueño tienen los mismos permisos implementados actualmente. El ranking de vendedores por ventas para el Dueño está pendiente.
 
@@ -235,6 +249,7 @@ Rutas adicionales:
 | --- | --- | --- |
 | `POST` | `/api/auth/login` | Autenticar y obtener un JWT |
 | `POST` | `/api/auth/cambiar-contrasenia` | Cambiar la contraseña propia y revocar JWT anteriores |
+| `POST` | `/api/auth/logout` | Cerrar todas las sesiones de la cuenta autenticada |
 | `GET` | `/api/usuarios/vendedores` | Listar vendedores según el alcance del rol |
 | `GET` | `/api/usuarios/clientes` | Listar cuentas Cliente; actualmente Administrador/Dueño |
 
@@ -313,11 +328,11 @@ Con la configuración de entorno disponible, el JAR se ejecuta mediante:
 java -jar target/viajes-0.0.1-SNAPSHOT.jar
 ```
 
-**Verificaciones registradas:** compilación exitosa; pruebas unitarias de reservas aprobadas; pruebas manuales en Postman de login, autorización por sucursal, cambio de contraseña y revocación de JWT anteriores. La cobertura HTTP de todas las operaciones todavía está pendiente.
+**Verificaciones registradas:** compilación exitosa; pruebas unitarias de reservas aprobadas; pruebas manuales en Postman de login, autorización por sucursal, cambio de contraseña y revocación de JWT anteriores. También se confirmó el logout global: acceso con token válido → 200, logout → 204 y acceso con el token anterior → 401; sin token → 401; nuevo login con la misma contraseña y acceso con el nuevo JWT → 200. La cobertura HTTP de todas las operaciones todavía está pendiente.
 
 ## 🚧 Estado y pendientes
 
-- Implementar cierre de sesión y decidir si revoca un token o todos los de la cuenta.
+- Completar pruebas de logout con otros roles y otros tokens de la cuenta.
 - Definir renovación de JWT y permisos adicionales del Cliente.
 - Revisar CORS para integrar el frontend.
 - Implementar el endpoint del ranking de vendedores para el Dueño.

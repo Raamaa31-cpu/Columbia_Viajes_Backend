@@ -4,7 +4,7 @@
 - Estructura base del proyecto configurada con Java 21, Spring Boot y Maven.
 - Archivo de reglas de IA (`Agents.md`) implementado.
 - Módulos de Sucursal, Vuelo, Hotel, Ciudad, Usuario, Turista, Paquetes y PaqueteReserva completos.
-- Spring Security en implementación guiada paso a paso. Autenticación con MySQL y BCrypt, JWT, autorización por rol, restricciones por sucursal en reservas y cambio de contraseña con revocación de JWT anteriores implementados. Quedan pruebas completas por HTTP y funcionalidades de seguridad pendientes.
+- Spring Security en implementación guiada paso a paso. Autenticación con MySQL y BCrypt, JWT, autorización por rol, restricciones por sucursal en reservas, cambio de contraseña y logout global con revocación de JWT anteriores implementados. Quedan pruebas completas por HTTP y funcionalidades de seguridad pendientes.
 
 ## Avance de Seguridad — 07/10/2026
 - `PasswordConfig` registra un `PasswordEncoder` con BCrypt. La creación de usuarios guarda el hash de la contraseña.
@@ -67,7 +67,7 @@
 - Los nuevos JWT incluyen el claim versionAutenticacion, además del subject y las fechas. DatosToken es un record interno con nombreUsuario y versionAutenticacion.
 - JwtService.leerToken verifica y lee el JWT una sola vez; exige usuario, vencimiento y una versión numérica no negativa. Usa Long para detectar una versión ausente y devuelve DatosToken. Los tokens anteriores a la incorporación del claim también se rechazan por no incluirlo; este caso específico no se probó por HTTP.
 - JwtAuthenticationFilter carga el usuario actual desde MySQL y compara ambas versiones antes de construir la autenticación. Si difieren, lanza JwtException; el catch limpia el contexto y devuelve 401 sin cuerpo.
-- Cambiar la contraseña invalida todos los JWT anteriores de esa cuenta, incluidos los de otros dispositivos. No se implementó todavía un endpoint de cierre de sesión ni una revocación individual por dispositivo o token.
+- Cambiar la contraseña invalida todos los JWT anteriores de esa cuenta, incluidos los de otros dispositivos. Posteriormente se agregó el logout global (ver avance del 12/10); no hay revocación individual por dispositivo o token.
 - schema.sql se exportó desde la base local con nueve tablas y quince registros: tres ciudades, cuatro roles, dos sucursales y seis usuarios. Después se agregó version_autenticacion a la definición y el valor 0 a los seis INSERT de usuarios. Es una foto de los datos al exportar; los cambios de contraseña y versión posteriores no actualizan el archivo automáticamente.
 
 ### Verificación realizada
@@ -75,6 +75,19 @@
 - Pruebas manuales realizadas y confirmadas por el usuario en Postman: contraseña actual incorrecta → 400; login con la contraseña original todavía funciona; cambio correcto → 204; login con la contraseña anterior → 401; login con la nueva → 200 y un JWT nuevo.
 - Revocación comprobada con una cuenta de Administrador de prueba: GET /api/usuarios con token A → 200; cambio de contraseña con ese token → 204; repetir el GET con el token A original, antes de su vencimiento → 401.
 - Recuperación de acceso comprobada: login con la contraseña nueva → 200; GET /api/usuarios con el nuevo token B → 200.
+
+## Cierre de Sesión Global — 12/10/2026
+- El usuario eligió la alternativa más simple: cerrar todas las sesiones de la cuenta mediante el contador existente, sin implementar revocación individual por token.
+- POST /api/auth/logout está en AuthController, no recibe cuerpo y obtiene la cuenta a través de UsuarioActualService en el service. Requiere un JWT válido mediante anyRequest().authenticated(); está habilitado por configuración para todos los roles autenticados.
+- UsuarioService.cerrarTodasLasSesiones devuelve void y usa @Transactional. Aumenta versionAutenticacion y guarda el usuario, sin modificar la contraseña. El controlador devuelve 204 sin cuerpo.
+- El usuario escribió inicialmente cerrarSesion(); a su pedido, se renombró a cerrarTodasLasSesiones y se extrajo incrementarVersionAutenticacion(Usuario usuario), un método privado compartido con cambiarContrasenia. Cada método público conserva su transacción y save(). El endpoint se agregó luego con ayuda directa.
+- SecurityConfig mantiene desactivado el logout automático de Spring; el endpoint REST propio implementa la revocación para el diseño STATELESS. El frontend deberá eliminar su copia del token al cerrar sesión.
+- Se explicó que la versión no es un secreto: cambiar el contenido de un JWT invalida su firma. JWT_SECRET se utiliza para firmar al emitir y verificar al recibir; conocer el contador no permite generar un token válido. El usuario comprendió la diferencia entre verificar la firma y comparar la versión.
+- Compilación mvnw.cmd compile exitosa después del refactor y de agregar el endpoint. No se agregaron ni ejecutaron pruebas automatizadas nuevas para logout.
+- Prueba manual confirmada por el usuario en Postman, con una cuenta de Administrador de prueba: GET /api/usuarios con JWT válido → 200; POST /api/auth/logout con ese JWT → 204; repetir el GET con el mismo token antes de vencer → 401.
+- Verificación adicional del 12/10: el usuario mostró en Postman logout sin token → 401 con "Necesitás iniciar sesión" y confirmó nuevo login con la misma contraseña → 200 y acceso a /api/usuarios con el nuevo JWT → 200.
+- Todavía falta confirmar por HTTP: funcionamiento con Cliente/Vendedor/Dueño y rechazo de otros tokens de la misma cuenta tras el logout. Se propuso una prueba con tokens A y B, pero el usuario prefirió continuar con el siguiente tema; no registrar esa prueba como realizada.
+- README.md actualizado con el endpoint, su alcance global, permisos y verificación realizada.
 
 ## Tareas Pendientes (Backlog)
 - [x] Implementar el módulo completo de Usuario (Controller, Service, Mapper, DTOs).
@@ -95,7 +108,9 @@
 - [ ] Verificar rechazo de tokens vencidos y de cuentas eliminadas.
 - [x] Implementar y probar cambio de contraseña del usuario autenticado, con comprobación de contraseña actual.
 - [x] Implementar y probar revocación de todos los JWT anteriores de la cuenta mediante versionAutenticacion al cambiar la contraseña.
-- [ ] Definir e implementar cierre de sesión: distinguir revocación del token actual y revocación de todos los tokens de la cuenta.
+- [x] Definir e implementar logout global, con prueba manual de 204 y rechazo del token anterior con 401.
+- [x] Probar logout sin token y nuevo login con la misma contraseña seguido de acceso con el nuevo JWT.
+- [ ] Completar pruebas HTTP de logout con otros roles y otros tokens de la cuenta.
 - [ ] Definir renovación de JWT y revisar CORS para el frontend.
 - [ ] Corregir la regla del listado de clientes para Vendedor: el controlador expone /api/usuarios/clientes, pero SecurityConfig permite /api/clientes; actualmente la ruta real queda restringida a Administrador/Dueño.
 - [ ] Implementar ranking de vendedores según sus ventas para el Dueño.
@@ -107,7 +122,7 @@
 
 ## Continuación en Otro Chat
 1. Leer Agents.md y este Memory.md, y revisar el código actual antes de proponer cambios.
-2. Retomar la enseñanza por cierre de sesión. El cambio de contraseña y la revocación por versión ya están implementados y probados manualmente. Explicar primero la diferencia entre salir de un dispositivo y revocar todos los tokens de la cuenta; el alcance del logout todavía no se decidió.
+2. Continuar la enseñanza corrigiendo el matcher del listado de clientes para Vendedor: la ruta real es GET /api/usuarios/clientes y su excepción debe estar antes de la regla general /api/usuarios/**. El logout global ya fue implementado y probado con Administrador; también se confirmó el rechazo sin token y el nuevo login. Quedan pendientes otros roles y la prueba con dos tokens de la misma cuenta; no repetir los casos ya confirmados.
 3. Completar las pruebas manuales de DELETE /api/paquetes-reservas/{id}. Usar reservas de prueba de dos sucursales, confirmar estados y ausencia de borrado al rechazar. Si aparece 401 en vez de 404, investigar el despacho de errores.
 4. Confirmar en Postman creación, actualización y precios: 0/10/20 % sobre el precio base; al editar una reserva de un compañero conservar vendedorId; impedir cambio a un paquete de otra sucursal.
 5. Verificar token vencido y token de usuario eliminado; corregir la ruta del listado de clientes para Vendedor, definir permisos adicionales del Cliente, revisar rutas sin regla específica (actualmente anyRequest().authenticated()), y decidir renovación y CORS cuando corresponda.

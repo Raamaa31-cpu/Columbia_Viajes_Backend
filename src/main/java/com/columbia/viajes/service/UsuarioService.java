@@ -143,8 +143,7 @@ public class UsuarioService {
         String nuevoHash = passwordEncoder.encode(request.contraseniaNueva());
         usuarioActual.setContrasenia(nuevoHash);
         
-        long versionAutenticacionNueva = usuarioActual.getVersionAutenticacion() + 1;
-        usuarioActual.setVersionAutenticacion(versionAutenticacionNueva);
+        incrementarVersionAutenticacion(usuarioActual);
         
         usuarioRepository.save(usuarioActual);
     }
@@ -155,6 +154,20 @@ public class UsuarioService {
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el usuario con ID " + id));
 
         usuarioRepository.delete(usuario);
+    }
+    
+    @Transactional
+    public void cerrarTodasLasSesiones(){
+        Usuario usuarioActual = usuarioActualService.obtener();
+        
+        incrementarVersionAutenticacion(usuarioActual);
+        
+        usuarioRepository.save(usuarioActual);
+    }
+
+    private void incrementarVersionAutenticacion(Usuario usuario) {
+        long versionAutenticacionNueva = usuario.getVersionAutenticacion() + 1;
+        usuario.setVersionAutenticacion(versionAutenticacionNueva);
     }
     
     private Sucursal obtenerSucursalVendedor(Integer idSucursal, Rol rol){

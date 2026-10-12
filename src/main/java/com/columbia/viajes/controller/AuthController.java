@@ -33,5 +33,11 @@ public class AuthController {
         
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> cerrarTodasLasSesiones() {
+        usuarioService.cerrarTodasLasSesiones();
+        return ResponseEntity.noContent().build();
+    }
     
 }
