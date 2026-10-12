@@ -33,9 +33,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter{
         String token = encabezado.substring(7);
         
         try {
-            String nombreUsuario = jwtService.obtenerNombreUsuario(token);
+            var datosToken = jwtService.leerToken(token);
+            UsuarioAutenticado usuario = (UsuarioAutenticado)
+                    userDetailsService.loadUserByUsername(datosToken.nombreUsuario());
             
-            var usuario = userDetailsService.loadUserByUsername(nombreUsuario);
+            if(usuario.getVersionAutenticacion() != datosToken.versionAutenticacion()){
+                throw new JwtException("El token ya no es válido");
+            }
             
             var autenticacion = 
                 UsernamePasswordAuthenticationToken.authenticated(

@@ -1,5 +1,6 @@
 package com.columbia.viajes.security.service;
 
+import com.columbia.viajes.security.DatosToken;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -31,13 +32,14 @@ public class JwtService {
         this.duracionMs = duracionMs;
     }
     
-    public String generarToken(String nombreUsuario){
+    public String generarToken(String nombreUsuario, long versionAutenticacion){
         
         Instant creacion = Instant.now();
         Instant vencimiento = creacion.plusMillis(duracionMs);
         
         return Jwts.builder()
                 .subject(nombreUsuario)
+                .claim("versionAutenticacion", versionAutenticacion)
                 .issuedAt(Date.from(creacion))
                 .expiration(Date.from(vencimiento))
                 .signWith(clave, Jwts.SIG.HS256)
@@ -45,7 +47,7 @@ public class JwtService {
         
     }
     
-    public String obtenerNombreUsuario(String token){
+    public DatosToken leerToken(String token){
         
         var contenido = Jwts.parser()
                 .verifyWith(clave)
@@ -54,12 +56,13 @@ public class JwtService {
                 .getPayload();
         
         String nombreUsuario = contenido.getSubject();
+        Long versionAutenticacion = contenido.get("versionAutenticacion", Long.class);
         
-        if(nombreUsuario == null || nombreUsuario.isBlank() || contenido.getExpiration() == null){
-            throw new JwtException("El token debe incluir usuario y vencimiento");
+        if(nombreUsuario == null || nombreUsuario.isBlank() || contenido.getExpiration() == null || versionAutenticacion == null || versionAutenticacion < 0){
+            throw new JwtException("El token debe incluir usuario, vencimiento y versión de autenticación");
         }
         
-        return nombreUsuario;
+        return new DatosToken(nombreUsuario, versionAutenticacion);
     }
     
 }

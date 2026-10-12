@@ -143,6 +143,9 @@ public class UsuarioService {
         String nuevoHash = passwordEncoder.encode(request.contraseniaNueva());
         usuarioActual.setContrasenia(nuevoHash);
         
+        long versionAutenticacionNueva = usuarioActual.getVersionAutenticacion() + 1;
+        usuarioActual.setVersionAutenticacion(versionAutenticacionNueva);
+        
         usuarioRepository.save(usuarioActual);
     }
 

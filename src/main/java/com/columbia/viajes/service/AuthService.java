@@ -2,6 +2,7 @@ package com.columbia.viajes.service;
 
 import com.columbia.viajes.dto.request.AuthRequest;
 import com.columbia.viajes.dto.response.AuthResponse;
+import com.columbia.viajes.security.UsuarioAutenticado;
 import com.columbia.viajes.security.service.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,16 +19,18 @@ public class AuthService {
     public AuthResponse autenticar(AuthRequest request){
         var credenciales = UsernamePasswordAuthenticationToken.unauthenticated(request.nombre(), request.contrasenia());
         
-        var autenticacion = authenticationManager.authenticate(credenciales);
+        UsuarioAutenticado usuarioAutenticado = (UsuarioAutenticado) authenticationManager
+                                                                    .authenticate(credenciales)
+                                                                    .getPrincipal();
         
-        String rolNombre = autenticacion.getAuthorities()
+        String rolNombre = usuarioAutenticado.getAuthorities()
                 .iterator()
                 .next()
                 .getAuthority();
         
-        String token = jwtService.generarToken(autenticacion.getName());
+        String token = jwtService.generarToken(usuarioAutenticado.getUsername(), usuarioAutenticado.getVersionAutenticacion());
         
-        return new AuthResponse(autenticacion.getName(), rolNombre, token);
+        return new AuthResponse(usuarioAutenticado.getUsername(), rolNombre, token);
     }
     
 }

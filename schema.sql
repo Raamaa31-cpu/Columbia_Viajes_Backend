@@ -258,6 +258,7 @@ CREATE TABLE `usuarios` (
   `id_rol` int unsigned NOT NULL,
   `fecha_creacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `id_sucursal` int unsigned DEFAULT NULL,
+  `version_autenticacion` bigint NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_usuarios_nombre` (`nombre`),
   KEY `fk_usuarios_rol` (`id_rol`),
@@ -274,12 +275,12 @@ CREATE TABLE `usuarios` (
 
 LOCK TABLES `usuarios` WRITE;
 /*!40000 ALTER TABLE `usuarios` DISABLE KEYS */;
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (1,'prueba_security','$2a$10$Hi7yG0TC2LJlsUMk6uHr.uJHBt/I6E87Ns19FGRkBQsKPlJ3OtgrG',1,'2026-10-07 00:45:54',NULL);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (2,'prueba_admin','$2a$10$OfmWXeOf/c2c9f575AnHcu24YHuV1KnVy143ZW/sP0WHaG6KzEKQ2',3,'2026-10-09 00:32:48',NULL);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (3,'prueba_duenio','$2a$10$Hi7yG0TC2LJlsUMk6uHr.uJHBt/I6E87Ns19FGRkBQsKPlJ3OtgrG',4,'2026-10-09 00:32:48',NULL);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (4,'vendedor_a1','$2a$10$BQr88dfKVuuab6X8QF.DaOgjoJL8o4dgJdYLB.7fQlzkSaoWo43GS',2,'2026-10-10 16:57:51',2);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (5,'vendedor_a2','$2a$10$zSCxe9FLxQX8IyNlAkPx2OlqwJGhUv6WURi.WmYOfPgCbCYBmtSjK',2,'2026-10-10 16:58:10',2);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`) VALUES (6,'vendedor_b1','$2a$10$L7NbMgOc.bEGkDayIRJYruAyQacZ0njw0iaHgivc.CT4xRXDyOmN.',2,'2026-10-10 16:58:20',3);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (1,'prueba_security','$2a$10$Hi7yG0TC2LJlsUMk6uHr.uJHBt/I6E87Ns19FGRkBQsKPlJ3OtgrG',1,'2026-10-07 00:45:54',NULL,0);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (2,'prueba_admin','$2a$10$OfmWXeOf/c2c9f575AnHcu24YHuV1KnVy143ZW/sP0WHaG6KzEKQ2',3,'2026-10-09 00:32:48',NULL,0);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (3,'prueba_duenio','$2a$10$Hi7yG0TC2LJlsUMk6uHr.uJHBt/I6E87Ns19FGRkBQsKPlJ3OtgrG',4,'2026-10-09 00:32:48',NULL,0);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (4,'vendedor_a1','$2a$10$BQr88dfKVuuab6X8QF.DaOgjoJL8o4dgJdYLB.7fQlzkSaoWo43GS',2,'2026-10-10 16:57:51',2,0);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (5,'vendedor_a2','$2a$10$zSCxe9FLxQX8IyNlAkPx2OlqwJGhUv6WURi.WmYOfPgCbCYBmtSjK',2,'2026-10-10 16:58:10',2,0);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (6,'vendedor_b1','$2a$10$L7NbMgOc.bEGkDayIRJYruAyQacZ0njw0iaHgivc.CT4xRXDyOmN.',2,'2026-10-10 16:58:20',3,0);
 /*!40000 ALTER TABLE `usuarios` ENABLE KEYS */;
 UNLOCK TABLES;
 

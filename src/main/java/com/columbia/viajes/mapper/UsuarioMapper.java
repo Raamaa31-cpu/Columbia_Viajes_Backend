@@ -23,6 +23,7 @@ public interface UsuarioMapper {
     @Mapping(target = "nombre", source = "request.nombre")
     @Mapping(target = "contrasenia", source = "request.contrasenia")
     @Mapping(target = "sucursal", source = "sucursal")
+    @Mapping(target = "versionAutenticacion", ignore = true)
     Usuario toUsuario(UsuarioRequest request, Rol rol, Sucursal sucursal);
     
     @Mapping(target = "id", ignore = true)
@@ -31,6 +32,7 @@ public interface UsuarioMapper {
     @Mapping(target = "nombre", source = "request.nombre")
     @Mapping(target = "contrasenia", ignore = true)
     @Mapping(target = "sucursal", source = "sucursal")
+    @Mapping(target = "versionAutenticacion", ignore = true)        
     void actualizarUsuario(UsuarioActualizacionRequest request, Rol rol, Sucursal sucursal, @MappingTarget Usuario usuario);
     
 }

@@ -2,8 +2,8 @@ package com.columbia.viajes.security.service;
 
 import com.columbia.viajes.model.Usuario;
 import com.columbia.viajes.repository.UsuarioRepository;
+import com.columbia.viajes.security.UsuarioAutenticado;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -24,10 +24,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                         new UsernameNotFoundException("Credenciales incorrectas")
                 );
         
-        return User.withUsername(usuario.getNombre())
-                .password(usuario.getContrasenia())
-                .authorities(usuario.getRol().getNombre())
-                .build();
+        return new UsuarioAutenticado(usuario);
     }
     
 }

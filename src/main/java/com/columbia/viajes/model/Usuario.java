@@ -35,4 +35,7 @@ public class Usuario {
     @ManyToOne
     @JoinColumn(name = "id_sucursal")
     private Sucursal sucursal;
+    
+    @Column(name = "version_autenticacion", nullable = false)
+    private long versionAutenticacion;
 }
