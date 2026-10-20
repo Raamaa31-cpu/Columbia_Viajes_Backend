@@ -75,6 +75,12 @@ public class SecurityConfig {
                                 "/api/turistas/**"
                         ).hasAnyAuthority("Vendedor", "Administrador", "Dueño")
                         
+                        // El vendedor administra turistas: alta y edición (la baja queda para Admin/Dueño)
+                        .requestMatchers(HttpMethod.POST, "/api/turistas")
+                        .hasAnyAuthority("Vendedor", "Administrador", "Dueño")
+                        .requestMatchers(HttpMethod.PUT, "/api/turistas/**")
+                        .hasAnyAuthority("Vendedor", "Administrador", "Dueño")
+                        
                         .requestMatchers(
                                 "/api/paquetes-reservas",
                                 "/api/paquetes-reservas/**"

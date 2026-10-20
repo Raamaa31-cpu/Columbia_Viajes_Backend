@@ -223,14 +223,16 @@ DROP TABLE IF EXISTS `turistas`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `turistas` (
-  `id` int unsigned NOT NULL,
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `id_usuario` int unsigned DEFAULT NULL,
   `nombre` varchar(100) NOT NULL,
   `apellidos` varchar(100) NOT NULL,
   `direccion` varchar(150) NOT NULL,
   `email` varchar(120) NOT NULL,
   `telefono` varchar(30) NOT NULL,
   PRIMARY KEY (`id`),
-  CONSTRAINT `fk_turistas_usuario` FOREIGN KEY (`id`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
+  UNIQUE KEY `uk_turistas_usuario` (`id_usuario`),
+  CONSTRAINT `fk_turistas_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

@@ -2,7 +2,6 @@ package com.columbia.viajes.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record TuristaRequest(
@@ -28,6 +27,6 @@ public record TuristaRequest(
     @Size(min = 7, max = 20, message = "El teléfono debe tener entre 7 y 20 caracteres")
     String telefono,
 
-    @NotNull(message = "El ID del usuario es obligatorio")
+    // Opcional: solo si el turista tiene cuenta (usuario con rol Cliente)
     Integer idUsuario
 ) {}

@@ -1,9 +1,10 @@
 package com.columbia.viajes.model;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
@@ -13,11 +14,12 @@ import lombok.Data;
 @Data
 public class Turista {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     
-    @OneToOne(optional = false)
-    @MapsId
-    @JoinColumn(name = "id")
+    // Cuenta opcional: un turista puede existir sin usuario (rol Cliente)
+    @OneToOne(optional = true)
+    @JoinColumn(name = "id_usuario", unique = true)
     private Usuario usuario;
     
     private String nombre;

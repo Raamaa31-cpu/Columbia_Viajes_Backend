@@ -4,5 +4,8 @@ import com.columbia.viajes.model.Turista;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TuristaRepository extends JpaRepository<Turista, Integer> {
-    
+
+    boolean existsByUsuario_Id(Integer idUsuario);
+
+    boolean existsByUsuario_IdAndIdNot(Integer idUsuario, Integer id);
 }
