@@ -38,8 +38,7 @@ public class TuristaService {
         // El email no es único en la tabla turistas (ver schema.sql), por lo que
         // no se valida unicidad. Se valida unicidad solo donde la base de datos lo define.
 
-        Usuario usuario = usuarioRepository.findById(request.idUsuario())
-                .orElseThrow(() -> new IllegalArgumentException("El usuario con ID " + request.idUsuario() + " no existe."));
+        Usuario usuario = resolverUsuario(request.idUsuario(), null);
 
         Turista turistaNuevo = turistaMapper.toTurista(request, usuario);
         Turista turistaGuardado = turistaRepository.save(turistaNuevo);
@@ -52,8 +51,7 @@ public class TuristaService {
                 .map(turista -> {
                     // El email no es único en la tabla turistas (ver schema.sql)
 
-                    Usuario usuario = usuarioRepository.findById(request.idUsuario())
-                            .orElseThrow(() -> new IllegalArgumentException("El usuario con ID " + request.idUsuario() + " no existe."));
+                    Usuario usuario = resolverUsuario(request.idUsuario(), id);
 
                     turistaMapper.actualizarTurista(request, usuario, turista);
 
@@ -68,5 +66,32 @@ public class TuristaService {
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el turista con ID " + id));
 
         turistaRepository.delete(turista);
+    }
+
+    /**
+     * La cuenta del turista es opcional. Si se indica, debe ser un usuario con rol
+     * Cliente que no esté asociado a otro turista.
+     * idTuristaActual: null al crear; el id del turista al actualizar.
+     */
+    private Usuario resolverUsuario(Integer idUsuario, Integer idTuristaActual) {
+        if (idUsuario == null) {
+            return null;
+        }
+
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("El usuario con ID " + idUsuario + " no existe."));
+
+        if (!"Cliente".equals(usuario.getRol().getNombre())) {
+            throw new IllegalArgumentException("Solo un usuario con rol Cliente puede asociarse a un turista.");
+        }
+
+        boolean yaAsociado = idTuristaActual == null
+                ? turistaRepository.existsByUsuario_Id(idUsuario)
+                : turistaRepository.existsByUsuario_IdAndIdNot(idUsuario, idTuristaActual);
+        if (yaAsociado) {
+            throw new IllegalArgumentException("El usuario con ID " + idUsuario + " ya está asociado a otro turista.");
+        }
+
+        return usuario;
     }
 }
