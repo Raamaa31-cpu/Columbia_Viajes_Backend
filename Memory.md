@@ -131,6 +131,40 @@
 - README actualizado con el endpoint, ejemplos, perfiles obligatorios de Clientes y alcance de permisos. Login por email continúa pendiente; por ahora el login sigue usando nombre.
 - Verificación manual del 24/10: tras probar el JSON de registro público, el usuario confirmó que pudo registrar un Cliente e iniciar sesión con su nombre de usuario. No confirmó todavía la consulta de los dos registros con ID compartido ni el rollback por email duplicado; esos casos continúan pendientes.
 
+## Login por Email — Primer Paso — 24/10/2026
+- Este primer diseño con DTO separado fue reemplazado por decisión del usuario; ver la sección de login unificado siguiente. No volver a crear AuthClienteRequest.
+- El usuario pidió comenzar el login por email de Clientes. Se creó AuthClienteRequest en dto.request, con email (@NotBlank, @Email y @Size de máximo 120, de acuerdo con la columna de turistas) y contrasenia (@NotBlank, como el login actual).
+- mvnw.cmd compile terminó con BUILD SUCCESS. Este paso solo agrega el DTO; no se modificaron AuthService, UserDetailsServiceImpl ni los endpoints de login, que todavía autentican por nombre. No se modificaron tablas ni datos de MySQL.
+- Próximo paso: método de AuthService que reciba AuthClienteRequest, resuelva el email mediante TuristaRepository.findByEmailIgnoreCase, compruebe rol Cliente y reutilice AuthenticationManager y la emisión de AuthResponse/JWT. Mantener la identidad canónica del usuario en el JWT y evitar duplicar la lógica de emisión. Después conectar y probar el endpoint correspondiente.
+
+## Login Unificado por Identificador — 24/10/2026
+- El usuario aclaró que un Cliente debe poder iniciar sesión tanto con email como con username en el mismo login. Los demás roles conservarán el acceso por nombre de usuario; la resolución por email debe admitir únicamente rol Cliente.
+- A su pedido se eliminó AuthClienteRequest.java. AuthRequest ahora recibe identificador (@NotBlank con mensaje "El email o nombre de usuario no puede estar vacío") y contrasenia (@NotBlank). No lleva @Email porque el identificador también puede ser un nombre de usuario.
+- Se adaptó AuthService.autenticar para leer request.identificador() y se actualizó el JSON de login del README. El contrato de POST /api/auth/login usa la clave identificador en lugar de nombre; AuthResponse sigue devolviendo nombre, rolNombre y token.
+- mvnw.cmd compile terminó con BUILD SUCCESS. En este paso solo cambió el DTO y su referencia: UserDetailsServiceImpl todavía busca por nombre, por lo que la búsqueda por email no está implementada. No presentar el login por email como terminado ni crear un endpoint separado.
+- Próximo paso: resolver el identificador por nombre o por email de un Turista con rol Cliente, evitando confundir cuentas si un nombre coincide con un email. Reutilizar AuthenticationManager y la emisión de JWT con la identidad canónica; mantener la carga del usuario desde el JWT por esa identidad. Mostrar los bloques modificados y avanzar por pasos pequeños.
+
+## Login Unificado Implementado — 24/10/2026
+- A pedido del usuario se implementó el mismo POST /api/auth/login con AuthRequest(identificador, contrasenia): Cliente puede ingresar por nombre o por email; los otros roles por nombre. No se creó otro DTO ni endpoint.
+- UserDetailsServiceImpl inyecta TuristaRepository y agrega loadUserByIdentificador, con @Transactional(readOnly = true). Consulta nombre y email, admite como candidato por email solo a un Usuario con rol Cliente y devuelve UsuarioAutenticado con los datos de la cuenta resuelta.
+- Si el nombre y el email resuelven a IDs diferentes, se rechaza el login. Si ambos apuntan al mismo ID, se permite. El rechazo usa UsernameNotFoundException con mensaje genérico; DaoAuthenticationProvider lo convierte en BadCredentialsException, que el manejador responde como 401. Esta política evita elegir una cuenta arbitrariamente cuando el identificador es ambiguo.
+- AuthenticationConfig.authenticationProvider recibe el bean concreto UserDetailsServiceImpl y construye DaoAuthenticationProvider(userDetailsService::loadUserByIdentificador). Sigue usando el PasswordEncoder BCrypt y el AuthenticationManager existentes. La contraseña la verifica Spring Security; no se comparan hashes manualmente ni se emite el JWT antes de autenticar.
+- loadUserByUsername conserva su búsqueda exclusivamente por nombre para JwtAuthenticationFilter. No se reinterpreta el subject de un JWT como email. AuthService ya pasaba request.identificador() y sigue emitiendo AuthResponse/JWT con el nombre canónico y la versión de la cuenta autenticada.
+- AuthServiceTest agrega 17 casos usando AuthenticationConfig, AuthenticationManager, DaoAuthenticationProvider y BCrypt reales, repositorios y JwtService simulados. Cubre Cliente por nombre/email, gestión por nombre, contraseña incorrecta en ambos identificadores, rechazo de emails asociados a otros roles, cuenta inexistente, coincidencia de nombre/email de la misma cuenta y ambigüedad entre cuentas distintas, y carga canónica del usuario para JWT.
+- mvnw.cmd -Dtest=AuthServiceTest test aprobó los 17 casos con BUILD SUCCESS. Se ejecutó además ViajesApplicationTests.contextLoads: cargó correctamente Spring Security, sus beans y JPA contra MySQL con ddl-auto=validate (una prueba aprobada). No se crearon cuentas ni se modificaron tablas o datos en estas verificaciones.
+- README actualizado con el contrato identificador, ejemplos por username/email y la política de ambigüedad. Falta confirmar en Postman login Cliente por ambos identificadores, contraseña incorrecta y uso del JWT emitido por email en una ruta autenticada. No confundir esta implementación con las notas históricas que todavía dicen que el email estaba pendiente.
+
+## Validación Cruzada de Username y Email — 24/10/2026
+- El usuario pidió impedir que un nuevo username coincida con el email de otra cuenta y viceversa. Se agregó ValidadorIdentificadoresService, que inyecta UsuarioRepository y TuristaRepository y centraliza validarNombreDisponible(nombre, idUsuario) y validarEmailDisponible(email, idUsuario).
+- Se movieron al validador las comprobaciones de unicidad anteriores de UsuarioService y TuristaService. Cada método valida su propia tabla y luego la otra; perteneceAOtraCuenta compara IDs y permite conservar valores de la cuenta actual. En una misma cuenta, username y email pueden ser iguales porque no hay ambigüedad de identidad.
+- UsuarioService.crearUsuario valida username y, para Cliente, email antes de encode/save. Cubre registro público y creación de gestión. actualizar valida el nuevo username contra ambas tablas. TuristaService.crear y actualizar validan el email contra ambas tablas usando el ID compartido del Usuario/Turista para excluir la cuenta propia.
+- Las coincidencias ajenas lanzan IllegalArgumentException, que ManejadorErrores convierte en 400. Los mensajes distinguen username coincidente con email ajeno y email coincidente con username ajeno. El email usa findByEmailIgnoreCase y el username usa findByNombre con la colación actual de MySQL utf8mb4_0900_ai_ci.
+- Se agregaron doce casos de ValidadorIdentificadoresServiceTest y cinco a RegistroClienteServiceTest (37 en total), y se amplió TuristaServiceTest a trece casos. Se probaron rechazos en creación/edición, rechazo antes de guardar Usuario y aceptación de valores de la cuenta propia. Se adaptaron los constructores de las pruebas al validador compartido.
+- El primer comando con validador, registro, turistas y login aprobó 78 casos. Después de agregar un caso más para crear un perfil con email igual al username propio y reforzar la prueba de conservación de la relación, se ejecutaron TuristaServiceTest (13 aprobados) y ViajesApplicationTests.contextLoads (1 aprobado, con MySQL). Las cuatro clases unitarias suman 79 casos comprobados y el contexto inicia correctamente con las nuevas dependencias.
+- Una consulta de solo lectura a MySQL confirmó cero coincidencias preexistentes entre username y email de cuentas con IDs distintos. No se modificaron tablas ni datos ni schema.sql en este paso.
+- Son comprobaciones de aplicación; los UNIQUE actuales de MySQL siguen siendo individuales por tabla, sin una restricción global entre ambas. No se implementó serialización de registros concurrentes. Se conserva la defensa que rechaza identificadores ambiguos al iniciar sesión. No afirmar garantía atómica global frente a concurrencia solamente por estas validaciones.
+- Próximas pruebas manuales: rechazar al registrar un username igual a email ajeno, un email igual a username ajeno y repetir esas comprobaciones al editar. Los duplicados conocidos ahora se rechazan antes de guardar Usuario; probar ese caso no demuestra un rollback posterior al INSERT. La verificación de rollback real con un fallo posterior a guardar Usuario sigue pendiente.
+
 ## Tareas Pendientes (Backlog)
 - [x] Implementar el módulo completo de Usuario (Controller, Service, Mapper, DTOs).
 - [x] Implementar el módulo completo de Turista (Controller, Service, Mapper, DTOs).
@@ -167,7 +201,11 @@
 - [ ] Verificar los dos registros con ID compartido y el rollback por email duplicado en MySQL.
 - [x] Implementar jerarquía de creación y asignación de roles: Dueño puede asignar todos; Administrador solo Vendedor/Cliente.
 - [ ] Verificar por HTTP la creación conjunta desde gestión y la jerarquía al crear/editar/eliminar.
-- [ ] Implementar y probar login por email para Clientes.
+- [x] Implementar login unificado Cliente por username/email, con pruebas automatizadas y contexto Spring/MySQL aprobado.
+- [ ] Confirmar por HTTP login Cliente con username/email, rechazos y acceso autenticado usando el JWT emitido por email.
+- [x] Unificar AuthRequest con identificador y contraseña y eliminar el DTO de login separado.
+- [x] Agregar validaciones cruzadas de username/email en registro, gestión y edición con lógica compartida y pruebas.
+- [ ] Confirmar por HTTP los rechazos de coincidencias cruzadas y la conservación de valores propios.
 - [ ] Implementar ranking de vendedores según sus ventas para el Dueño.
 
 ## Problemas o Bugs Conocidos
@@ -177,7 +215,7 @@
 
 ## Continuación en Otro Chat
 1. Leer Agents.md y este Memory.md, y revisar el código actual antes de proponer cambios.
-2. Retomar por pruebas de registro en Postman: POST /api/auth/registro con No Auth y credenciales más el perfil anidado debe devolver 201 y crear Usuario Cliente + Turista con el mismo ID. Comprobar con MySQL o con GET de turista usando Administrador. Después probar duplicados y rollback, creación desde gestión y jerarquía. Endpoint, perfiles obligatorios y permisos ya están implementados; no repetirlos. Luego continuar login por email para Clientes. Mostrar siempre los bloques modificados y mantener pasos pequeños.
+2. Probar en Postman las validaciones cruzadas ya implementadas: username igual a email ajeno y email igual a username ajeno deben generar 400 sin crear la cuenta. Repetir al editar, permitiendo conservar valores propios. Luego probar login unificado del Cliente por username/email, contraseña incorrecta y JWT emitido por email. No repetir código: AuthRequest usa identificador/contraseña, provider usa loadUserByIdentificador y el filtro loadUserByUsername canónico. Las pruebas de login, validador, registro y turistas ya pasaron; el contexto también inicia con MySQL. Mostrar siempre bloques modificados y mantener pasos pequeños. Siguen pendientes ID compartido, rollback real ante fallo posterior al INSERT, gestión y jerarquía por HTTP.
 3. Completar las pruebas manuales de DELETE /api/paquetes-reservas/{id}. Usar reservas de prueba de dos sucursales, confirmar estados y ausencia de borrado al rechazar. Si aparece 401 en vez de 404, investigar el despacho de errores.
 4. Confirmar en Postman creación, actualización y precios: 0/10/20 % sobre el precio base; al editar una reserva de un compañero conservar vendedorId; impedir cambio a un paquete de otra sucursal.
 5. Verificar token vencido y token de usuario eliminado; probar el listado de clientes como Vendedor (ruta ya corregida), completar pruebas de logout con otros roles y dos tokens, definir permisos adicionales del Cliente, revisar rutas sin regla específica (actualmente anyRequest().authenticated()), y decidir renovación y CORS cuando corresponda.

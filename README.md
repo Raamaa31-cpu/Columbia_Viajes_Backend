@@ -148,11 +148,15 @@ Content-Type: application/json
 }
 ```
 
-En Postman, usá **No Auth**. El servidor fija el rol Cliente y guarda Usuario y Turista juntos en una transacción. Exige nombre de usuario y email disponibles, valida los campos del perfil y guarda la contraseña como hash BCrypt. Devuelve `201 Created` con `UsuarioResponse`; para obtener un JWT, hacé login después del registro. El login por email todavía está pendiente: por ahora se usa el nombre de usuario.
+En Postman, usá **No Auth**. El servidor fija el rol Cliente y guarda Usuario y Turista juntos en una transacción. Exige nombre de usuario y email disponibles, valida los campos del perfil y guarda la contraseña como hash BCrypt. Devuelve `201 Created` con `UsuarioResponse`; para obtener un JWT, hacé login después del registro. El Cliente puede usar su nombre de usuario o su email.
+
+El registro y las ediciones validan también las coincidencias entre tablas: un username no puede tomar el email de otra cuenta ni un email puede tomar su username. Estas comprobaciones se comparten en `ValidadorIdentificadoresService` y devuelven `400` cuando encuentran un valor ajeno. Se permite que username y email coincidan dentro de la misma cuenta. Son controles del service; los índices UNIQUE de MySQL siguen definidos por tabla.
 
 Desde gestión, `POST /api/usuarios` recibe `UsuarioRequest`: `nombre`, `contrasenia`, `idRol`, `idSucursal` y `turista`. El perfil `turista` es obligatorio si el rol es Cliente y debe omitirse para otros roles. El backend obtiene al creador de la autenticación y valida sus permisos antes de guardar.
 
 ### Login
+
+El mismo endpoint recibe un `identificador`: para Cliente puede ser nombre de usuario o email; Administrador, Dueño y Vendedor ingresan por nombre de usuario.
 
 ```http
 POST /api/auth/login
@@ -161,7 +165,7 @@ Content-Type: application/json
 
 ```json
 {
-  "nombre": "prueba_admin",
+  "identificador": "prueba_admin",
   "contrasenia": "TU_CONTRASENIA_DE_PRUEBA"
 }
 ```
@@ -175,6 +179,19 @@ Respuesta `200 OK`:
   "token": "JWT_GENERADO"
 }
 ```
+
+Ejemplo del mismo login usando el email de un Cliente:
+
+```json
+{
+  "identificador": "ana@example.com",
+  "contrasenia": "TU_CONTRASENIA_DE_PRUEBA"
+}
+```
+
+La búsqueda del email usa `findByEmailIgnoreCase` y exige que el usuario asociado tenga rol Cliente. La contraseña se comprueba mediante el mismo `AuthenticationManager` y BCrypt. Tanto la respuesta como el JWT conservan el nombre de usuario canónico, aunque se haya ingresado un email.
+
+Si un identificador coincide con el username de una cuenta y el email de otra, se rechaza con `401` para evitar seleccionar una cuenta equivocada. Si ambos corresponden a la misma cuenta, se permite. Credenciales incorrectas, cuenta inexistente y email no habilitado para el rol también responden `401`.
 
 Enviá el token en las solicitudes protegidas:
 
@@ -290,7 +307,7 @@ Los perfiles de turistas se crean junto con la cuenta Cliente mediante registro 
 
 Un paquete pertenece a una sucursal e incluye hotel, vuelo de ida y vuelo de vuelta. Un turista está vinculado a un usuario y puede tener varias reservas. Cada reserva relaciona un paquete, un turista y un vendedor.
 
-El email del turista es único en MySQL. El service valida duplicados al crear y editar, permitiendo conservar el email de la propia cuenta y rechazando el de otro turista con un error de datos. El registro de cuenta y perfil está implementado; queda pendiente su verificación con MySQL y el login por email.
+El email del turista es único en MySQL. El service valida duplicados al crear y editar, permitiendo conservar el email de la propia cuenta y rechazando el de otro turista con un error de datos. El registro de cuenta y perfil y el login unificado están implementados; falta completar la verificación HTTP del perfil y del acceso por email.
 
 Ejemplo de solicitud de reserva:
 
@@ -347,6 +364,8 @@ Comandos para PowerShell:
 .\mvnw.cmd "-Dtest=TuristaServiceTest" test
 .\mvnw.cmd "-Dtest=RegistroClienteServiceTest" test
 .\mvnw.cmd "-Dtest=AuthRegistroControllerTest" test
+.\mvnw.cmd "-Dtest=AuthServiceTest" test
+.\mvnw.cmd "-Dtest=ValidadorIdentificadoresServiceTest" test
 .\mvnw.cmd test
 .\mvnw.cmd package
 ```
@@ -355,9 +374,11 @@ En Linux/macOS, reemplazá `.\mvnw.cmd` por `./mvnw`.
 
 - `compile`: compila el código y genera los mappers.
 - `PaqueteReservaServiceTest`: contiene 12 pruebas unitarias de reservas; usa mocks y no necesita MySQL ni `JWT_SECRET`.
-- `TuristaServiceTest`: contiene nueve pruebas unitarias de unicidad de email, conservación de la relación al editar, rechazo de perfiles duplicados y creación únicamente para un Cliente existente; usa mocks y no necesita MySQL ni `JWT_SECRET`.
-- `RegistroClienteServiceTest`: contiene 32 casos de registro, perfiles obligatorios, jerarquía de creación/edición/eliminación y conservación de contraseña/versión. Usa mocks; todavía falta verificar la reversión real de ambos guardados con MySQL.
+- `TuristaServiceTest`: contiene trece pruebas de unicidad y coincidencias cruzadas de email, conservación de la relación al editar, rechazo de perfiles duplicados y creación únicamente para un Cliente existente; usa mocks y no necesita MySQL ni `JWT_SECRET`.
+- `RegistroClienteServiceTest`: contiene 37 casos de registro, perfiles obligatorios, coincidencias cruzadas de username/email, jerarquía de creación/edición/eliminación y conservación de contraseña/versión. Usa mocks; todavía falta verificar la reversión real de ambos guardados con MySQL.
 - `AuthRegistroControllerTest`: contiene tres pruebas MockMvc standalone de respuesta 201 sin contraseña y validación del perfil anidado. No utiliza MySQL ni la cadena de filtros de seguridad.
+- `AuthServiceTest`: contiene 17 casos con `AuthenticationManager`, `DaoAuthenticationProvider` y BCrypt reales, repositorios simulados y emisión de JWT simulada. Comprueba acceso por email/username, rechazo de contraseña incorrecta, restricciones por rol, identificadores ambiguos y carga canónica del usuario para JWT.
+- `ValidadorIdentificadoresServiceTest`: contiene doce casos de valores disponibles, duplicados, coincidencias entre tablas y exclusión de la propia cuenta.
 - `test`: incluye `ViajesApplicationTests.contextLoads`, que necesita MySQL, el esquema preparado y `JWT_SECRET`. No hay un perfil de integración separado.
 - `package`: ejecuta las pruebas y genera `target/viajes-0.0.1-SNAPSHOT.jar`.
 
@@ -375,7 +396,9 @@ java -jar target/viajes-0.0.1-SNAPSHOT.jar
 - Definir renovación de JWT y permisos adicionales del Cliente.
 - Revisar CORS para integrar el frontend.
 - Implementar el endpoint del ranking de vendedores para el Dueño.
-- Verificar por HTTP el registro público, los dos guardados y su rollback por errores con MySQL. Implementar login por email para Clientes.
+- Completar las pruebas del registro: se confirmó manualmente el alta y login por nombre; faltan el ID compartido y la reversión por errores con MySQL.
+- Probar en Postman el login unificado del Cliente con username/email y sus rechazos; están aprobadas las pruebas automatizadas y la carga del contexto de Spring con MySQL.
+- Probar por HTTP las coincidencias cruzadas de username/email al crear y editar. Se validan antes del guardado; una protección global atómica entre tablas ante solicitudes concurrentes requeriría una estrategia adicional.
 - Verificar por HTTP la creación conjunta desde gestión y la jerarquía de creación/edición/eliminación implementada en el service.
 - Verificar por HTTP el listado de clientes para Vendedor; el matcher de `/api/usuarios/clientes` ya está corregido.
 - Verificar por HTTP la conservación del Usuario al editar perfiles de turista.

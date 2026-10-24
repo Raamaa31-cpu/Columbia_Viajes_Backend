@@ -6,9 +6,11 @@ import com.columbia.viajes.dto.request.UsuarioActualizacionRequest;
 import com.columbia.viajes.dto.request.UsuarioRequest;
 import com.columbia.viajes.mapper.UsuarioMapper;
 import com.columbia.viajes.model.Rol;
+import com.columbia.viajes.model.Turista;
 import com.columbia.viajes.model.Usuario;
 import com.columbia.viajes.repository.RolRepository;
 import com.columbia.viajes.repository.SucursalRepository;
+import com.columbia.viajes.repository.TuristaRepository;
 import com.columbia.viajes.repository.UsuarioRepository;
 import com.columbia.viajes.security.service.UsuarioActualService;
 import java.util.Optional;
@@ -32,6 +34,7 @@ class RegistroClienteServiceTest {
     private RolRepository roles;
     private UsuarioActualService usuarioActual;
     private TuristaService turistas;
+    private TuristaRepository perfiles;
     private BCryptPasswordEncoder encoder;
     private UsuarioService service;
     private Rol rolCliente;
@@ -42,9 +45,11 @@ class RegistroClienteServiceTest {
         roles = mock(RolRepository.class);
         usuarioActual = mock(UsuarioActualService.class);
         turistas = mock(TuristaService.class);
+        perfiles = mock(TuristaRepository.class);
         encoder = new BCryptPasswordEncoder(4);
         service = new UsuarioService(usuarios, roles, mock(SucursalRepository.class),
-                Mappers.getMapper(UsuarioMapper.class), encoder, usuarioActual, turistas);
+                Mappers.getMapper(UsuarioMapper.class), encoder, usuarioActual, turistas,
+                new ValidadorIdentificadoresService(usuarios, perfiles));
         rolCliente = rol(77, "Cliente");
         when(roles.findByNombre("Cliente")).thenReturn(Optional.of(rolCliente));
         when(usuarioActual.obtener()).thenReturn(actor("Dueño"));
@@ -252,6 +257,77 @@ class RegistroClienteServiceTest {
         usuario.setId(100);
         usuario.setRol(rol(999, nombreRol));
         return usuario;
+    }
+
+    @Test
+    void registroRechazaNombreQueYaEsEmailAjenoAntesDeGuardar() {
+        Turista perfilExistente = new Turista();
+        perfilExistente.setId(20);
+        when(perfiles.findByEmailIgnoreCase("ocupado@example.com")).thenReturn(Optional.of(perfilExistente));
+        RegistroClienteRequest datos = new RegistroClienteRequest("ocupado@example.com", "ClavePrueba123", request().turista());
+
+        assertThrows(IllegalArgumentException.class, () -> service.registrarCliente(datos));
+
+        verify(usuarios, never()).save(any());
+        verifyNoInteractions(turistas, usuarioActual);
+    }
+
+    @Test
+    void registroRechazaEmailQueYaEsNombreAjenoAntesDeGuardar() {
+        Usuario existente = actor("Vendedor");
+        when(usuarios.findByNombre("ana@example.com")).thenReturn(Optional.of(existente));
+
+        assertThrows(IllegalArgumentException.class, () -> service.registrarCliente(request()));
+
+        verify(usuarios, never()).save(any());
+        verifyNoInteractions(turistas, usuarioActual);
+    }
+
+    @Test
+    void editarNombreNoPermiteTomarEmailDeOtraCuenta() {
+        Usuario existente = actor("Cliente");
+        existente.setNombre("ana_viajes");
+        Turista perfilAjeno = new Turista();
+        perfilAjeno.setId(20);
+        when(usuarios.findById(100)).thenReturn(Optional.of(existente));
+        when(roles.findById(77)).thenReturn(Optional.of(rolCliente));
+        when(perfiles.findByEmailIgnoreCase("ajeno@example.com")).thenReturn(Optional.of(perfilAjeno));
+
+        assertThrows(IllegalArgumentException.class, () -> service.actualizar(100,
+                new UsuarioActualizacionRequest("ajeno@example.com", 77, null)));
+
+        assertEquals("ana_viajes", existente.getNombre());
+        verify(usuarios, never()).save(any());
+    }
+
+    @Test
+    void editarNombrePermiteUsarElEmailPropio() {
+        Usuario existente = actor("Cliente");
+        existente.setNombre("ana_viajes");
+        Turista perfilPropio = new Turista();
+        perfilPropio.setId(100);
+        when(usuarios.findById(100)).thenReturn(Optional.of(existente));
+        when(roles.findById(77)).thenReturn(Optional.of(rolCliente));
+        when(perfiles.findByEmailIgnoreCase("ana@example.com")).thenReturn(Optional.of(perfilPropio));
+
+        var response = service.actualizar(100, new UsuarioActualizacionRequest("ana@example.com", 77, null));
+
+        assertEquals("ana@example.com", response.orElseThrow().nombre());
+        verify(usuarios).save(existente);
+    }
+
+    @Test
+    void crearDesdeGestionRechazaNombreQueYaEsEmailAjeno() {
+        when(roles.findById(2)).thenReturn(Optional.of(rol(2, "Vendedor")));
+        Turista perfilAjeno = new Turista();
+        perfilAjeno.setId(20);
+        when(perfiles.findByEmailIgnoreCase("ajeno@example.com")).thenReturn(Optional.of(perfilAjeno));
+
+        assertThrows(IllegalArgumentException.class, () -> service.crear(
+                new UsuarioRequest("ajeno@example.com", "ClavePrueba123", 2, null, null)));
+
+        verify(usuarios, never()).save(any());
+        verifyNoInteractions(turistas);
     }
 
     private Rol rol(Integer id, String nombre) {

@@ -28,7 +28,8 @@ class TuristaServiceTest {
     void preparar() {
         turistas = mock(TuristaRepository.class);
         usuarios = mock(UsuarioRepository.class);
-        service = new TuristaService(turistas, usuarios, Mappers.getMapper(TuristaMapper.class));
+        service = new TuristaService(turistas, usuarios, Mappers.getMapper(TuristaMapper.class),
+                new ValidadorIdentificadoresService(usuarios, turistas));
     }
 
     @Test
@@ -58,7 +59,7 @@ class TuristaServiceTest {
         assertEquals("ANA@example.com", response.orElseThrow().email());
         assertSame(usuarioVinculado, existente.getUsuario());
         assertEquals(10, existente.getId());
-        verifyNoInteractions(usuarios);
+        verify(usuarios, never()).findById(any());
         verify(turistas).save(existente);
     }
 
@@ -131,6 +132,56 @@ class TuristaServiceTest {
         turista.setUsuario(usuario);
         turista.setEmail(email);
         return turista;
+    }
+
+    @Test
+    void crearRechazaEmailQueYaEsNombreDeOtraCuenta() {
+        when(usuarios.findByNombre("ajeno@example.com")).thenReturn(Optional.of(usuario(20, "Vendedor")));
+
+        assertThrows(IllegalArgumentException.class, () -> service.crear(10, request("ajeno@example.com")));
+
+        verify(turistas, never()).save(any());
+    }
+
+    @Test
+    void actualizarEmailNoPermiteTomarNombreDeOtraCuenta() {
+        Turista existente = turista(10, "ana@example.com");
+        when(turistas.findById(10)).thenReturn(Optional.of(existente));
+        when(usuarios.findByNombre("ajeno@example.com")).thenReturn(Optional.of(usuario(20, "Vendedor")));
+
+        assertThrows(IllegalArgumentException.class, () -> service.actualizar(10, request("ajeno@example.com")));
+
+        assertEquals("ana@example.com", existente.getEmail());
+        verify(turistas, never()).save(any());
+    }
+
+    @Test
+    void actualizarEmailPermiteUsarElNombreDeLaPropiaCuenta() {
+        Turista existente = turista(10, "anterior@example.com");
+        Usuario usuarioOriginal = existente.getUsuario();
+        when(turistas.findById(10)).thenReturn(Optional.of(existente));
+        when(usuarios.findByNombre("ana@example.com")).thenReturn(Optional.of(existente.getUsuario()));
+        when(turistas.save(existente)).thenReturn(existente);
+
+        var response = service.actualizar(10, request("ana@example.com"));
+
+        assertEquals("ana@example.com", response.orElseThrow().email());
+        assertSame(usuarioOriginal, existente.getUsuario());
+        verify(usuarios, never()).findById(any());
+    }
+
+    @Test
+    void crearPermiteEmailIgualAlNombreDelUsuarioRelacionado() {
+        Usuario usuario = usuario(10, "Cliente");
+        usuario.setNombre("ana@example.com");
+        when(usuarios.findByNombre("ana@example.com")).thenReturn(Optional.of(usuario));
+        when(usuarios.findById(10)).thenReturn(Optional.of(usuario));
+        when(turistas.save(any(Turista.class))).thenAnswer(invocacion -> invocacion.getArgument(0));
+
+        var response = service.crear(10, request("ana@example.com"));
+
+        assertEquals("ana@example.com", response.email());
+        assertEquals(10, response.usuarioId());
     }
 
     private Usuario usuario(Integer id, String nombreRol) {

@@ -20,6 +20,7 @@ public class TuristaService {
     private final TuristaRepository turistaRepository;
     private final UsuarioRepository usuarioRepository;
     private final TuristaMapper turistaMapper;
+    private final ValidadorIdentificadoresService validadorIdentificadores;
 
     public List<TuristaResponse> listar() {
         return turistaRepository.findAll()
@@ -35,7 +36,7 @@ public class TuristaService {
 
     @Transactional
     public TuristaResponse crear(Integer idUsuario, TuristaRequest request) {
-        validarEmailDisponible(request.email(), null);
+        validadorIdentificadores.validarEmailDisponible(request.email(), idUsuario);
 
         Usuario usuario = usuarioRepository.findById(idUsuario)
                 .orElseThrow(() -> new IllegalArgumentException("El usuario con ID " + idUsuario + " no existe."));
@@ -56,7 +57,7 @@ public class TuristaService {
     public Optional<TuristaResponse> actualizar(Integer id, TuristaRequest request) {
         return turistaRepository.findById(id)
                 .map(turista -> {
-                    validarEmailDisponible(request.email(), turista.getId());
+                    validadorIdentificadores.validarEmailDisponible(request.email(), turista.getId());
 
                     turistaMapper.actualizarTurista(request, turista);
 
@@ -73,11 +74,4 @@ public class TuristaService {
         turistaRepository.delete(turista);
     }
 
-    private void validarEmailDisponible(String email, Integer idTurista) {
-        turistaRepository.findByEmailIgnoreCase(email)
-                .filter(turista -> !turista.getId().equals(idTurista))
-                .ifPresent(turista -> {
-                    throw new IllegalArgumentException("Ya existe un turista registrado con el email: " + email);
-                });
-    }
 }

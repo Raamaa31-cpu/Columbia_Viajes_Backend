@@ -17,7 +17,7 @@ public class AuthService {
     private final JwtService jwtService;
     
     public AuthResponse autenticar(AuthRequest request){
-        var credenciales = UsernamePasswordAuthenticationToken.unauthenticated(request.nombre(), request.contrasenia());
+        var credenciales = UsernamePasswordAuthenticationToken.unauthenticated(request.identificador(), request.contrasenia());
         
         UsuarioAutenticado usuarioAutenticado = (UsuarioAutenticado) authenticationManager
                                                                     .authenticate(credenciales)

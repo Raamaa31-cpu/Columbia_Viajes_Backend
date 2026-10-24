@@ -35,6 +35,7 @@ public class UsuarioService {
 
     private final UsuarioActualService usuarioActualService;
     private final TuristaService turistaService;
+    private final ValidadorIdentificadoresService validadorIdentificadores;
     
     public List<UsuarioResponse> listar() {
         return usuarioRepository.findAll()
@@ -124,7 +125,7 @@ public class UsuarioService {
                     if ("Cliente".equals(usuario.getRol().getNombre()) != "Cliente".equals(rol.getNombre())) {
                         throw new IllegalArgumentException("No se puede cambiar entre Cliente y roles de gestión mediante esta operación.");
                     }
-                    validarNombreDisponible(request.nombre(), usuario.getId());
+                    validadorIdentificadores.validarNombreDisponible(request.nombre(), usuario.getId());
                     Sucursal sucursal = obtenerSucursalVendedor(request.idSucursal(), rol);
 
                     usuarioMapper.actualizarUsuario(request, rol, sucursal, usuario);
@@ -186,7 +187,10 @@ public class UsuarioService {
         if (!esCliente && request.turista() != null) {
             throw new IllegalArgumentException("Solo los usuarios con rol Cliente pueden tener datos de turista.");
         }
-        validarNombreDisponible(request.nombre(), null);
+        validadorIdentificadores.validarNombreDisponible(request.nombre(), null);
+        if (esCliente) {
+            validadorIdentificadores.validarEmailDisponible(request.turista().email(), null);
+        }
         Usuario usuarioNuevo = usuarioMapper.toUsuario(request, rol, sucursal);
         usuarioNuevo.setContrasenia(passwordEncoder.encode(request.contrasenia()));
         Usuario usuarioGuardado = usuarioRepository.save(usuarioNuevo);
@@ -213,14 +217,6 @@ public class UsuarioService {
         return "Cliente".equals(rol.getNombre()) || "Vendedor".equals(rol.getNombre());
     }
 
-    private void validarNombreDisponible(String nombre, Integer idUsuario) {
-        usuarioRepository.findByNombre(nombre)
-                .filter(usuario -> !usuario.getId().equals(idUsuario))
-                .ifPresent(usuario -> {
-                    throw new IllegalArgumentException("Ya existe un usuario registrado con el nombre: " + nombre);
-                });
-    }
-    
     private Sucursal obtenerSucursalVendedor(Integer idSucursal, Rol rol){
         if (idSucursal != null) {
             if (!"Vendedor".equalsIgnoreCase(rol.getNombre())) {
