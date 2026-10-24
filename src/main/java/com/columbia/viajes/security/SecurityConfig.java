@@ -44,7 +44,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/api/auth/login"
+                                "/api/auth/login",
+                                "/api/auth/registro"
                         ).permitAll()
                         
                         .requestMatchers(
@@ -65,8 +66,8 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/usuarios/vendedores",
                                 "/api/usuarios/vendedores/**",
-                                "/api/clientes",
-                                "/api/clientes/**"                                
+                                "/api/usuarios/clientes",
+                                "/api/usuarios/clientes/**"
                         ).hasAnyAuthority("Vendedor", "Administrador", "Dueño")
                         
                        .requestMatchers(

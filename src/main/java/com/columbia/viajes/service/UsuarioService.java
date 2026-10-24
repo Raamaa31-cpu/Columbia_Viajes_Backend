@@ -1,6 +1,7 @@
 package com.columbia.viajes.service;
 
 import com.columbia.viajes.dto.request.CambioContraseniaRequest;
+import com.columbia.viajes.dto.request.RegistroClienteRequest;
 import com.columbia.viajes.dto.request.UsuarioActualizacionRequest;
 import com.columbia.viajes.dto.request.UsuarioRequest;
 import com.columbia.viajes.dto.response.UsuarioResponse;
@@ -33,6 +34,7 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
 
     private final UsuarioActualService usuarioActualService;
+    private final TuristaService turistaService;
     
     public List<UsuarioResponse> listar() {
         return usuarioRepository.findAll()
@@ -87,22 +89,27 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioResponse crear(UsuarioRequest request) {
-        if (usuarioRepository.findByNombre(request.nombre()).isPresent()) {
-            throw new IllegalArgumentException("Ya existe un usuario registrado con el nombre: " + request.nombre());
-        }
-
         Rol rol = rolRepository.findById(request.idRol())
                 .orElseThrow(() -> new IllegalArgumentException("El rol con ID " + request.idRol() + " no existe."));
 
+        validarGestionDeRoles(null, rol);
         Sucursal sucursal = obtenerSucursalVendedor(request.idSucursal(), rol);
 
-        Usuario usuarioNuevo = usuarioMapper.toUsuario(request, rol, sucursal);
-        
-        usuarioNuevo.setContrasenia(
-                passwordEncoder.encode(request.contrasenia())
+        Usuario usuarioGuardado = crearUsuario(request, rol, sucursal);
+        return usuarioMapper.toUsuarioResponse(usuarioGuardado);
+    }
+
+    @Transactional
+    public UsuarioResponse registrarCliente(RegistroClienteRequest request) {
+        Rol rolCliente = rolRepository.findByNombre("Cliente")
+                .orElseThrow(() -> new IllegalStateException("El rol Cliente no está configurado."));
+
+        UsuarioRequest datosUsuario = new UsuarioRequest(
+                request.nombreUsuario(), request.contrasenia(), rolCliente.getId(), null, request.turista()
         );
-        
-        Usuario usuarioGuardado = usuarioRepository.save(usuarioNuevo);
+
+        Usuario usuarioGuardado = crearUsuario(datosUsuario, rolCliente, null);
+
         return usuarioMapper.toUsuarioResponse(usuarioGuardado);
     }
 
@@ -110,14 +117,14 @@ public class UsuarioService {
     public Optional<UsuarioResponse> actualizar(Integer id, UsuarioActualizacionRequest request) {
         return usuarioRepository.findById(id)
                 .map(usuario -> {
-                    if (!request.nombre().equals(usuario.getNombre()) 
-                            && usuarioRepository.findByNombre(request.nombre()).isPresent()) {
-                        throw new IllegalArgumentException("Ya existe un usuario registrado con el nombre: " + request.nombre());
-                    }
-
                     Rol rol = rolRepository.findById(request.idRol())
                             .orElseThrow(() -> new IllegalArgumentException("El rol con ID " + request.idRol() + " no existe."));
 
+                    validarGestionDeRoles(usuario.getRol(), rol);
+                    if ("Cliente".equals(usuario.getRol().getNombre()) != "Cliente".equals(rol.getNombre())) {
+                        throw new IllegalArgumentException("No se puede cambiar entre Cliente y roles de gestión mediante esta operación.");
+                    }
+                    validarNombreDisponible(request.nombre(), usuario.getId());
                     Sucursal sucursal = obtenerSucursalVendedor(request.idSucursal(), rol);
 
                     usuarioMapper.actualizarUsuario(request, rol, sucursal, usuario);
@@ -153,6 +160,7 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el usuario con ID " + id));
 
+        validarGestionDeRoles(usuario.getRol(), usuario.getRol());
         usuarioRepository.delete(usuario);
     }
     
@@ -168,6 +176,49 @@ public class UsuarioService {
     private void incrementarVersionAutenticacion(Usuario usuario) {
         long versionAutenticacionNueva = usuario.getVersionAutenticacion() + 1;
         usuario.setVersionAutenticacion(versionAutenticacionNueva);
+    }
+
+    private Usuario crearUsuario(UsuarioRequest request, Rol rol, Sucursal sucursal) {
+        boolean esCliente = "Cliente".equals(rol.getNombre());
+        if (esCliente && request.turista() == null) {
+            throw new IllegalArgumentException("Los datos del turista son obligatorios para un Cliente.");
+        }
+        if (!esCliente && request.turista() != null) {
+            throw new IllegalArgumentException("Solo los usuarios con rol Cliente pueden tener datos de turista.");
+        }
+        validarNombreDisponible(request.nombre(), null);
+        Usuario usuarioNuevo = usuarioMapper.toUsuario(request, rol, sucursal);
+        usuarioNuevo.setContrasenia(passwordEncoder.encode(request.contrasenia()));
+        Usuario usuarioGuardado = usuarioRepository.save(usuarioNuevo);
+        if (esCliente) {
+            turistaService.crear(usuarioGuardado.getId(), request.turista());
+        }
+        return usuarioGuardado;
+    }
+
+    private void validarGestionDeRoles(Rol rolActualObjetivo, Rol rolNuevo) {
+        String rolCreador = usuarioActualService.obtener().getRol().getNombre();
+        if ("Dueño".equals(rolCreador)) {
+            return;
+        }
+        if ("Administrador".equals(rolCreador)
+                && esRolGestionablePorAdministrador(rolNuevo)
+                && (rolActualObjetivo == null || esRolGestionablePorAdministrador(rolActualObjetivo))) {
+            return;
+        }
+        throw new AccessDeniedException("No tenés permiso para gestionar usuarios con ese rol.");
+    }
+
+    private boolean esRolGestionablePorAdministrador(Rol rol) {
+        return "Cliente".equals(rol.getNombre()) || "Vendedor".equals(rol.getNombre());
+    }
+
+    private void validarNombreDisponible(String nombre, Integer idUsuario) {
+        usuarioRepository.findByNombre(nombre)
+                .filter(usuario -> !usuario.getId().equals(idUsuario))
+                .ifPresent(usuario -> {
+                    throw new IllegalArgumentException("Ya existe un usuario registrado con el nombre: " + nombre);
+                });
     }
     
     private Sucursal obtenerSucursalVendedor(Integer idSucursal, Rol rol){

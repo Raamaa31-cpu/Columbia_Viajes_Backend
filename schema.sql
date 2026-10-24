@@ -1,4 +1,4 @@
--- Estructura y datos actuales de columbia_viajes, exportados el 11/10/2026.
+-- Estructura y datos actuales de columbia_viajes, exportados el 12/10/2026.
 -- Incluye las contrasenias tal como estan almacenadas en la base (hashes BCrypt).
 -- Al importar, este archivo reemplaza las tablas existentes de la base seleccionada.
 
@@ -230,6 +230,7 @@ CREATE TABLE `turistas` (
   `email` varchar(120) NOT NULL,
   `telefono` varchar(30) NOT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_turistas_email` (`email`),
   CONSTRAINT `fk_turistas_usuario` FOREIGN KEY (`id`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -275,8 +276,7 @@ CREATE TABLE `usuarios` (
 
 LOCK TABLES `usuarios` WRITE;
 /*!40000 ALTER TABLE `usuarios` DISABLE KEYS */;
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (1,'prueba_security','$2a$10$Hi7yG0TC2LJlsUMk6uHr.uJHBt/I6E87Ns19FGRkBQsKPlJ3OtgrG',1,'2026-10-07 00:45:54',NULL,0);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (2,'prueba_admin','$2a$10$OfmWXeOf/c2c9f575AnHcu24YHuV1KnVy143ZW/sP0WHaG6KzEKQ2',3,'2026-10-09 00:32:48',NULL,0);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (2,'prueba_admin','$2a$10$mgqaD5KjnNZJfOwUG523GOkpY8GaNsJ1SIqsIdKUOXb7zLArXU2fK',3,'2026-10-09 00:32:48',NULL,3);
 INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (3,'prueba_duenio','$2a$10$Hi7yG0TC2LJlsUMk6uHr.uJHBt/I6E87Ns19FGRkBQsKPlJ3OtgrG',4,'2026-10-09 00:32:48',NULL,0);
 INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (4,'vendedor_a1','$2a$10$BQr88dfKVuuab6X8QF.DaOgjoJL8o4dgJdYLB.7fQlzkSaoWo43GS',2,'2026-10-10 16:57:51',2,0);
 INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (5,'vendedor_a2','$2a$10$zSCxe9FLxQX8IyNlAkPx2OlqwJGhUv6WURi.WmYOfPgCbCYBmtSjK',2,'2026-10-10 16:58:10',2,0);
@@ -336,4 +336,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-11 18:49:49
+-- Dump completed on 2026-10-12  0:57:00

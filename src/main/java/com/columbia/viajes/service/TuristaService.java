@@ -34,12 +34,18 @@ public class TuristaService {
     }
 
     @Transactional
-    public TuristaResponse crear(TuristaRequest request) {
-        // El email no es único en la tabla turistas (ver schema.sql), por lo que
-        // no se valida unicidad. Se valida unicidad solo donde la base de datos lo define.
+    public TuristaResponse crear(Integer idUsuario, TuristaRequest request) {
+        validarEmailDisponible(request.email(), null);
 
-        Usuario usuario = usuarioRepository.findById(request.idUsuario())
-                .orElseThrow(() -> new IllegalArgumentException("El usuario con ID " + request.idUsuario() + " no existe."));
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("El usuario con ID " + idUsuario + " no existe."));
+
+        if (!"Cliente".equals(usuario.getRol().getNombre())) {
+            throw new IllegalArgumentException("Solo los usuarios con rol Cliente pueden tener un turista asociado.");
+        }
+        if (turistaRepository.existsById(idUsuario)) {
+            throw new IllegalArgumentException("El usuario con ID " + idUsuario + " ya tiene un turista asociado.");
+        }
 
         Turista turistaNuevo = turistaMapper.toTurista(request, usuario);
         Turista turistaGuardado = turistaRepository.save(turistaNuevo);
@@ -50,12 +56,9 @@ public class TuristaService {
     public Optional<TuristaResponse> actualizar(Integer id, TuristaRequest request) {
         return turistaRepository.findById(id)
                 .map(turista -> {
-                    // El email no es único en la tabla turistas (ver schema.sql)
+                    validarEmailDisponible(request.email(), turista.getId());
 
-                    Usuario usuario = usuarioRepository.findById(request.idUsuario())
-                            .orElseThrow(() -> new IllegalArgumentException("El usuario con ID " + request.idUsuario() + " no existe."));
-
-                    turistaMapper.actualizarTurista(request, usuario, turista);
+                    turistaMapper.actualizarTurista(request, turista);
 
                     Turista turistaActualizado = turistaRepository.save(turista);
                     return turistaMapper.toTuristaResponse(turistaActualizado);
@@ -68,5 +71,13 @@ public class TuristaService {
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el turista con ID " + id));
 
         turistaRepository.delete(turista);
+    }
+
+    private void validarEmailDisponible(String email, Integer idTurista) {
+        turistaRepository.findByEmailIgnoreCase(email)
+                .filter(turista -> !turista.getId().equals(idTurista))
+                .ifPresent(turista -> {
+                    throw new IllegalArgumentException("Ya existe un turista registrado con el email: " + email);
+                });
     }
 }

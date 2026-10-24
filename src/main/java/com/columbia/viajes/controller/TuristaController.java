@@ -6,7 +6,6 @@ import com.columbia.viajes.service.TuristaService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,12 +26,6 @@ public class TuristaController {
         return turistaService.obtener(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
-    }
-
-    @PostMapping
-    public ResponseEntity<TuristaResponse> crear(@Valid @RequestBody TuristaRequest request) {
-        TuristaResponse nuevoTurista = turistaService.crear(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(nuevoTurista);
     }
 
     @PutMapping("/{id}")

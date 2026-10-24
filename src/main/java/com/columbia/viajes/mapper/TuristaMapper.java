@@ -24,12 +24,12 @@ public interface TuristaMapper {
     Turista toTurista(TuristaRequest request, Usuario usuario);
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "usuario", source = "usuario")
+    @Mapping(target = "usuario", ignore = true)
     @Mapping(target = "nombre", source = "request.nombre")
     @Mapping(target = "apellidos", source = "request.apellidos")
     @Mapping(target = "direccion", source = "request.direccion")
     @Mapping(target = "email", source = "request.email")
     @Mapping(target = "telefono", source = "request.telefono")
-    void actualizarTurista(TuristaRequest request, Usuario usuario, @MappingTarget Turista turista);
+    void actualizarTurista(TuristaRequest request, @MappingTarget Turista turista);
 
 }

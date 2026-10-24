@@ -109,9 +109,9 @@ La API queda disponible en `http://localhost:8080`. Si ejecutás desde un IDE, c
 
 ### Cuentas de prueba
 
-El SQL incluye cuentas como `prueba_admin`, `prueba_duenio`, `prueba_security` y vendedores asociados a sucursales. Sus contraseñas están almacenadas como hashes; para iniciar sesión necesitás conocer la contraseña original correspondiente.
+El SQL incluye cuentas como `prueba_admin`, `prueba_duenio` y vendedores asociados a sucursales. Sus contraseñas están almacenadas como hashes; para iniciar sesión necesitás conocer la contraseña original correspondiente. La antigua cuenta Cliente `prueba_security` se eliminó porque no tenía un Turista asociado.
 
-No hay registro público ni recuperación de contraseña implementados. Si preparás un entorno nuevo y desconocés las contraseñas de esas cuentas, configurá una contraseña propia en una cuenta de prueba usando un hash BCrypt generado con `BCryptPasswordEncoder`. Por ejemplo, en un entorno Java con las dependencias del proyecto:
+El registro público crea únicamente cuentas Cliente. Para configurar el acceso inicial de gestión, si desconocés las contraseñas de las cuentas importadas, asigná una contraseña propia a una cuenta de prueba usando un hash BCrypt generado con `BCryptPasswordEncoder`. No hay recuperación de contraseña implementada. Por ejemplo, en un entorno Java con las dependencias del proyecto:
 
 ```java
 new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder()
@@ -126,6 +126,31 @@ SET contrasenia = 'HASH_BCRYPT_GENERADO',
     version_autenticacion = version_autenticacion + 1
 WHERE nombre = 'prueba_admin';
 ```
+
+### Registro de Cliente
+
+```http
+POST /api/auth/registro
+Content-Type: application/json
+```
+
+```json
+{
+  "nombreUsuario": "ana_viajes",
+  "contrasenia": "TU_CONTRASENIA_DE_PRUEBA",
+  "turista": {
+    "nombre": "Ana",
+    "apellidos": "Pérez",
+    "direccion": "Av. Siempre Viva 123",
+    "email": "ana@example.com",
+    "telefono": "1123456789"
+  }
+}
+```
+
+En Postman, usá **No Auth**. El servidor fija el rol Cliente y guarda Usuario y Turista juntos en una transacción. Exige nombre de usuario y email disponibles, valida los campos del perfil y guarda la contraseña como hash BCrypt. Devuelve `201 Created` con `UsuarioResponse`; para obtener un JWT, hacé login después del registro. El login por email todavía está pendiente: por ahora se usa el nombre de usuario.
+
+Desde gestión, `POST /api/usuarios` recibe `UsuarioRequest`: `nombre`, `contrasenia`, `idRol`, `idSucursal` y `turista`. El perfil `turista` es obligatorio si el rol es Cliente y debe omitirse para otros roles. El backend obtiene al creador de la autenticación y valida sus permisos antes de guardar.
 
 ### Login
 
@@ -202,18 +227,21 @@ Cada usuario tiene un único rol: `Administrador`, `Dueño`, `Vendedor` o `Clien
 | Operación | Sin sesión | Cliente | Vendedor | Administrador / Dueño |
 | --- | --- | --- | --- | --- |
 | Consultar paquetes, ciudades, hoteles, vuelos y sucursales | Sí | Sí | Sí | Sí |
+| Registrarse como Cliente con perfil de Turista | Sí | Sí | Sí | Sí |
 | Crear, editar y eliminar datos del catálogo | No | No | No | Sí |
 | Consultar turistas | No | No | Todos | Todos |
-| Crear, editar y eliminar turistas | No | No | No | Sí |
+| Crear perfil junto con Cliente, editar y eliminar turistas | No | No | No | Sí |
 | Consultar vendedores | No | No | De su sucursal | Todos |
-| Listar cuentas Cliente | No | No | No, corrección pendiente | Sí |
-| CRUD general de usuarios | No | No | No | Sí |
+| Listar cuentas Cliente | No | No | Todas, con sucursal asignada | Sí |
+| Consultar usuarios y gestionar cuentas según jerarquía | No | No | No | Sí, con las restricciones indicadas abajo |
 | Consultar roles | No | No | No | Sí |
 | Consultar, crear, editar y eliminar reservas | No | No | De su sucursal | De todas las sucursales |
 | Cambiar su propia contraseña | No | Sí | Sí | Sí |
 | Cerrar todas las sesiones de su cuenta | No | Sí | Sí | Sí |
 
-Administrador y Dueño tienen los mismos permisos implementados actualmente. El ranking de vendedores por ventas para el Dueño está pendiente.
+Dueño puede crear, editar y eliminar usuarios de cualquier rol. Administrador solo puede gestionar cuentas Cliente/Vendedor y asignar esos roles; no puede editar ni eliminar una cuenta Administrador/Dueño. Ambos conservan acceso a la gestión del catálogo. El ranking de vendedores por ventas para el Dueño está pendiente.
+
+La edición general de usuarios no permite convertir entre Cliente y roles de gestión: el perfil se crea con la cuenta y se conserva. Los cambios de rol dentro de las cuentas de gestión respetan la jerarquía del actor.
 
 El Vendedor puede gestionar reservas de compañeros de su misma sucursal. Al crear una reserva queda asignado como vendedor automáticamente; al editarla conserva al vendedor original.
 
@@ -229,7 +257,7 @@ Todas las rutas usan el prefijo `/api`.
 | Vuelos | `/api/vuelos` | Listar, obtener, crear, actualizar y eliminar |
 | Paquetes | `/api/paquetes` | Listar, obtener, crear, actualizar y eliminar |
 | Usuarios | `/api/usuarios` | Listar, obtener, crear, actualizar y eliminar |
-| Turistas | `/api/turistas` | Listar, obtener, crear, actualizar y eliminar |
+| Turistas | `/api/turistas` | Listar, obtener, actualizar y eliminar; se crean junto con la cuenta Cliente |
 | Reservas | `/api/paquetes-reservas` | Listar, obtener, crear, actualizar y eliminar |
 | Roles | `/api/roles` | Listar y obtener |
 
@@ -248,16 +276,21 @@ Rutas adicionales:
 | Método | Ruta | Operación |
 | --- | --- | --- |
 | `POST` | `/api/auth/login` | Autenticar y obtener un JWT |
+| `POST` | `/api/auth/registro` | Registro público de Cliente y Turista juntos |
 | `POST` | `/api/auth/cambiar-contrasenia` | Cambiar la contraseña propia y revocar JWT anteriores |
 | `POST` | `/api/auth/logout` | Cerrar todas las sesiones de la cuenta autenticada |
 | `GET` | `/api/usuarios/vendedores` | Listar vendedores según el alcance del rol |
-| `GET` | `/api/usuarios/clientes` | Listar cuentas Cliente; actualmente Administrador/Dueño |
+| `GET` | `/api/usuarios/clientes` | Listar cuentas Cliente; Administrador/Dueño o Vendedor con sucursal |
 
 Los GET de catálogo son públicos. El resto de los permisos se detalla en la tabla anterior. Para los campos de cada solicitud y respuesta, consultá [dto/request](src/main/java/com/columbia/viajes/dto/request) y [dto/response](src/main/java/com/columbia/viajes/dto/response).
+
+Los perfiles de turistas se crean junto con la cuenta Cliente mediante registro público o creación de gestión. No existe un POST independiente de turistas. El JSON de `TuristaRequest` contiene únicamente `nombre`, `apellidos`, `direccion`, `email` y `telefono`. Al editar mediante `PUT /api/turistas/{id}`, se conserva el Usuario relacionado.
 
 ## 🧳 Reservas y cálculo del precio
 
 Un paquete pertenece a una sucursal e incluye hotel, vuelo de ida y vuelo de vuelta. Un turista está vinculado a un usuario y puede tener varias reservas. Cada reserva relaciona un paquete, un turista y un vendedor.
+
+El email del turista es único en MySQL. El service valida duplicados al crear y editar, permitiendo conservar el email de la propia cuenta y rechazando el de otro turista con un error de datos. El registro de cuenta y perfil está implementado; queda pendiente su verificación con MySQL y el login por email.
 
 Ejemplo de solicitud de reserva:
 
@@ -311,6 +344,9 @@ Comandos para PowerShell:
 ```powershell
 .\mvnw.cmd compile
 .\mvnw.cmd "-Dtest=PaqueteReservaServiceTest" test
+.\mvnw.cmd "-Dtest=TuristaServiceTest" test
+.\mvnw.cmd "-Dtest=RegistroClienteServiceTest" test
+.\mvnw.cmd "-Dtest=AuthRegistroControllerTest" test
 .\mvnw.cmd test
 .\mvnw.cmd package
 ```
@@ -319,6 +355,9 @@ En Linux/macOS, reemplazá `.\mvnw.cmd` por `./mvnw`.
 
 - `compile`: compila el código y genera los mappers.
 - `PaqueteReservaServiceTest`: contiene 12 pruebas unitarias de reservas; usa mocks y no necesita MySQL ni `JWT_SECRET`.
+- `TuristaServiceTest`: contiene nueve pruebas unitarias de unicidad de email, conservación de la relación al editar, rechazo de perfiles duplicados y creación únicamente para un Cliente existente; usa mocks y no necesita MySQL ni `JWT_SECRET`.
+- `RegistroClienteServiceTest`: contiene 32 casos de registro, perfiles obligatorios, jerarquía de creación/edición/eliminación y conservación de contraseña/versión. Usa mocks; todavía falta verificar la reversión real de ambos guardados con MySQL.
+- `AuthRegistroControllerTest`: contiene tres pruebas MockMvc standalone de respuesta 201 sin contraseña y validación del perfil anidado. No utiliza MySQL ni la cadena de filtros de seguridad.
 - `test`: incluye `ViajesApplicationTests.contextLoads`, que necesita MySQL, el esquema preparado y `JWT_SECRET`. No hay un perfil de integración separado.
 - `package`: ejecuta las pruebas y genera `target/viajes-0.0.1-SNAPSHOT.jar`.
 
@@ -336,7 +375,10 @@ java -jar target/viajes-0.0.1-SNAPSHOT.jar
 - Definir renovación de JWT y permisos adicionales del Cliente.
 - Revisar CORS para integrar el frontend.
 - Implementar el endpoint del ranking de vendedores para el Dueño.
-- Corregir el listado de clientes para Vendedor: el controlador usa `/api/usuarios/clientes`, pero su regla específica de seguridad usa `/api/clientes`; la ruta real queda restringida a Administrador/Dueño.
+- Verificar por HTTP el registro público, los dos guardados y su rollback por errores con MySQL. Implementar login por email para Clientes.
+- Verificar por HTTP la creación conjunta desde gestión y la jerarquía de creación/edición/eliminación implementada en el service.
+- Verificar por HTTP el listado de clientes para Vendedor; el matcher de `/api/usuarios/clientes` ya está corregido.
+- Verificar por HTTP la conservación del Usuario al editar perfiles de turista.
 - Completar pruebas HTTP de creación, edición, precios y eliminación de reservas, y de tokens vencidos y cuentas eliminadas.
 - Investigar un caso observado de respuesta `401` en lugar de un error de datos esperado durante el despacho interno de errores. El comportamiento HTTP de eliminación con `ResponseStatusException` sigue pendiente de verificación.
 

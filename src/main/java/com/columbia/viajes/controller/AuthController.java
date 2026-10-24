@@ -2,11 +2,14 @@ package com.columbia.viajes.controller;
 
 import com.columbia.viajes.dto.request.AuthRequest;
 import com.columbia.viajes.dto.request.CambioContraseniaRequest;
+import com.columbia.viajes.dto.request.RegistroClienteRequest;
 import com.columbia.viajes.dto.response.AuthResponse;
+import com.columbia.viajes.dto.response.UsuarioResponse;
 import com.columbia.viajes.service.AuthService;
 import com.columbia.viajes.service.UsuarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,6 +28,12 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest request){
         return ResponseEntity.ok(authService.autenticar(request));
+    }
+
+    @PostMapping("/registro")
+    public ResponseEntity<UsuarioResponse> registrarCliente(@Valid @RequestBody RegistroClienteRequest request) {
+        UsuarioResponse nuevoCliente = usuarioService.registrarCliente(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(nuevoCliente);
     }
     
     @PostMapping("/cambiar-contrasenia")

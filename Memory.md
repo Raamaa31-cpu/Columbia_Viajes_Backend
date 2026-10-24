@@ -32,7 +32,7 @@
 
 ## Reglas de Acceso Confirmadas
 - Cada usuario tiene un único rol.
-- Administrador y Dueño pueden realizar todas las operaciones; rutas configuradas en SecurityConfig.
+- Dueño puede gestionar usuarios de cualquier rol. Administrador puede crear, editar y eliminar únicamente cuentas Cliente/Vendedor y asignar esos roles; los controles del service cubren origen y destino al editar. Los dos roles conservan acceso a la gestión del catálogo. Ver implementación de registro y jerarquía del 13/10; falta prueba HTTP de la nueva jerarquía.
 - Vendedor puede gestionar reservas de su sucursal, consultar vendedores de esa sucursal y consultar todos los turistas. Las demás entidades solo se consultan; no tiene acceso al CRUD general de usuarios.
 - Requisito específico del Dueño: consultar un ranking de vendedores según sus ventas. Existe la consulta en PaqueteReservaRepository con SUM(precioReserva); exposición y verificación del endpoint pendientes.
 - Permisos adicionales del Cliente pendientes de definir; el rol Cliente no tiene acceso a las rutas de gestión restringidas.
@@ -89,6 +89,48 @@
 - Todavía falta confirmar por HTTP: funcionamiento con Cliente/Vendedor/Dueño y rechazo de otros tokens de la misma cuenta tras el logout. Se propuso una prueba con tokens A y B, pero el usuario prefirió continuar con el siguiente tema; no registrar esa prueba como realizada.
 - README.md actualizado con el endpoint, su alcance global, permisos y verificación realizada.
 
+## Registro de Clientes — Decisiones y Preparación — 12/10/2026
+- El usuario decidió continuar con registro de nuevos usuarios. Se acordó la jerarquía: Dueño puede crear cualquier rol; Administrador solo Vendedor y Cliente; Vendedor y Cliente no pueden crear cuentas de gestión. La restricción debe cubrir también cambios de rol y todavía falta implementarla.
+- El registro público debe asignar Cliente desde el servidor y crear su Turista en la misma transacción, con la relación uno a uno y el ID compartido mediante @MapsId. No recibir un rol o un ID ajeno para elegir la cuenta del registro.
+- Se solicitó que los Clientes puedan iniciar sesión mediante el email del Turista; los otros roles conservarán el nombre de usuario. Registro y login por email todavía no están implementados. Al buscar por email se deberá exigir rol Cliente y conservar una identidad inequívoca para los JWT.
+- A pedido del usuario, se agregó en MySQL el índice UNIQUE uq_turistas_email sobre turistas.email. Se comprobó que no había emails duplicados antes del ALTER. La entidad Turista declara el mismo UniqueConstraint y email como @Column(nullable = false, length = 120).
+- TuristaRepository ahora expone findByEmailIgnoreCase. TuristaService comparte validarEmailDisponible(email, idTurista) entre crear y actualizar. Crear rechaza cualquier email ocupado; actualizar permite el propio, incluso con cambios de mayúsculas, y rechaza el de otro turista. Lanza IllegalArgumentException, manejada como HTTP 400. La restricción de MySQL protege también frente a solicitudes concurrentes; las violaciones de integridad se manejan con el 409 existente.
+- Se eliminó únicamente la cuenta prueba_security, ID 1 y rol Cliente, que no tenía Turista ni reservas relacionadas. Se verificó una sola fila eliminada y cinco usuarios restantes. No usar esa cuenta en próximos ejercicios; los resultados anteriores quedan como historial de pruebas.
+- schema.sql se reexportó desde MySQL el 12/10: nueve tablas y catorce registros (tres ciudades, cuatro roles, dos sucursales y cinco usuarios), con hashes y versiones actuales al exportar, email único y sin el INSERT de la cuenta eliminada.
+- TuristaServiceTest incorpora cuatro pruebas unitarias: creación con email ocupado, actualización conservando email propio, actualización con email ajeno sin modificar/guardar y creación con email disponible conservando la relación con Usuario. mvnw.cmd -Dtest=TuristaServiceTest test terminó con BUILD SUCCESS; cuatro pruebas aprobadas sin MySQL. La validación todavía no se probó por HTTP.
+- Al revisar el código se encontró que el usuario ya corrigió el matcher de clientes a /api/usuarios/clientes y /api/usuarios/clientes/**, antes de la regla general de usuarios. La corrección está en el código y compiló, pero su prueba HTTP sigue pendiente.
+
+## TuristaRequest Reutilizable — 13/10/2026
+- El usuario propuso quitar idUsuario de TuristaRequest para reutilizar el mismo DTO en registro y gestión. No se creó DatosTuristaRequest. TuristaRequest conserva nombre, apellidos, direccion, email y telefono con sus validaciones.
+- El usuario quitó el ID del DTO y adaptó la edición: TuristaMapper.actualizarTurista ignora usuario e id y recibe únicamente request y @MappingTarget Turista. TuristaService.actualizar conserva la relación existente, sin consultar UsuarioRepository ni aceptar reasignación.
+- A pedido del usuario se completó la creación: TuristaService.crear recibe idUsuario por separado, exige que exista, tenga rol Cliente y todavía no tenga un Turista. Mantiene la validación compartida del email. Un segundo intento de crear el perfil no reemplaza al existente.
+- La creación de gestión pasó de POST /api/turistas a POST /api/usuarios/{idUsuario}/turista en UsuarioController, que inyecta TuristaService. Devuelve 201 y recibe solo el perfil en el JSON. La regla actual /api/usuarios/** exige Administrador/Dueño. La edición y demás operaciones siguen bajo /api/turistas.
+- Se adaptó TuristaServiceTest al DTO sin ID y se agregaron casos para impedir crear un segundo perfil, asociar roles distintos de Cliente y utilizar un usuario inexistente. También se comprueba que la edición conserva el ID y la misma instancia de Usuario. mvnw.cmd -Dtest=TuristaServiceTest test compiló y aprobó nueve pruebas sin MySQL; las rutas nuevas todavía no se verificaron por HTTP.
+- Este refactor no modifica tablas ni datos de MySQL. Registro público, jerarquía de asignación de roles y login por email continúan pendientes.
+- Se creó RegistroClienteRequest a pedido del usuario: nombreUsuario (@NotBlank y @Size de 2 a 100), contrasenia (@NotBlank y @Size de 8 a 64) y TuristaRequest turista (@NotNull y @Valid). Reutiliza el perfil de cinco campos y no recibe rol ni IDs. mvnw.cmd compile terminó con BUILD SUCCESS. Todavía falta el service de registro y su endpoint; este DTO por sí solo no habilita el registro público.
+- El service transaccional se agregó posteriormente (ver sección siguiente); falta conectar el registro con un endpoint público.
+
+## Método de Registro de Cliente — 13/10/2026
+- A pedido del usuario se agregó UsuarioService.registrarCliente(RegistroClienteRequest), con @Transactional y retorno UsuarioResponse. Busca el rol Cliente por nombre mediante el nuevo RolRepository.findByNombre; el ID del rol no está fijado en el código ni se toma del JSON. Si falta el rol configurado, lanza IllegalStateException.
+- Construye internamente un UsuarioRequest con las credenciales, el rol Cliente obtenido del servidor y sucursal null. Guarda al Usuario mediante el helper privado crearUsuario y luego llama a TuristaService.crear(idGenerado, request.turista()), que conserva la validación del email y la relación del perfil con la cuenta.
+- UsuarioService inyecta TuristaService. Este último participa en la misma transacción del registro; si lanza una excepción de ejecución, esta se propaga y Spring debe revertir ambos guardados. El registro no necesita consultar al usuario autenticado y su respuesta no incluye contraseña ni hash.
+- Se extrajo crearUsuario(request, rol, sucursal) para compartir validación de nombre, mapping, encode() y save() entre registro y creación de gestión. validarNombreDisponible(nombre, idUsuario) se comparte también con actualizar y permite conservar el nombre propio. La jerarquía acordada para gestión aún está pendiente; este cambio no la implementa.
+- RegistroClienteServiceTest agrega seis pruebas unitarias: rol Cliente obtenido por nombre e ID variable, hash BCrypt y llamada al perfil con el ID generado, nombre ocupado, rol Cliente ausente, propagación de error del perfil y regresiones de creación de gestión/edición conservando hash y versión. Se usa TuristaService simulado; estas pruebas no verifican rollback real de MySQL.
+- mvnw.cmd -Dtest=RegistroClienteServiceTest,TuristaServiceTest test compiló y aprobó quince pruebas (seis de registro y nueve de turistas). No se iniciaron pruebas HTTP ni se modificaron datos de MySQL.
+- Próximo paso: POST /api/auth/registro en AuthController con @Valid @RequestBody, respuesta 201 y una regla pública limitada a ese POST en SecurityConfig. Después verificar registro completo, duplicados, validación anidada y reversión del Usuario si falla el Turista usando MySQL.
+
+## Endpoint de Registro y Creación Conjunta — 13/10/2026
+- Se agregó POST /api/auth/registro en AuthController con @Valid @RequestBody RegistroClienteRequest, llamada a UsuarioService.registrarCliente y respuesta 201 con UsuarioResponse, sin contraseña ni JWT. SecurityConfig permite únicamente los POST exactos de login y registro; cambio de contraseña y logout siguen protegidos.
+- UsuarioRequest incorporó @Valid TuristaRequest turista. Para la creación de gestión de Cliente, el service exige perfil; para los demás roles, exige que no se envíe. RegistroClienteRequest conserva @NotNull y @Valid en su perfil.
+- crearUsuario ahora centraliza la creación conjunta: valida el perfil según rol, valida nombre, mapea, calcula hash, guarda Usuario y crea Turista si es Cliente. Tanto crear() como registrarCliente() lo invocan dentro de @Transactional. registrarCliente construye el UsuarioRequest interno con rol Cliente del servidor, sucursal null y el perfil, sin una segunda llamada duplicada a TuristaService.
+- crear() valida al actor obtenido de UsuarioActualService. El helper validarGestionDeRoles se comparte con actualizar() y eliminar(): Dueño puede gestionar todos; Administrador solo Cliente/Vendedor, tanto como rol objetivo existente como destino; Vendedor/Cliente reciben AccessDeniedException. Esto evita eludir las restricciones de creación mediante edición y protege cuentas privilegiadas al editar/eliminar.
+- actualizar() rechaza convertir entre Cliente y roles de gestión, incluso como Dueño, porque ese request no recibe un perfil para crear la relación ni define cómo quitarla. Mantiene los cambios dentro de roles de gestión autorizados y la edición del Cliente conservando su tipo. Esta restricción conserva la relación del perfil; no es una conversión de cuentas implementada.
+- El usuario ya había quitado crearTurista() de UsuarioController y su dependencia de TuristaService. No existe el POST independiente /api/usuarios/{idUsuario}/turista ni el antiguo POST /api/turistas. Los perfiles se crean junto con la cuenta; TuristaService.crear sigue disponible internamente. Consulta, edición y eliminación de turistas siguen expuestas.
+- RegistroClienteServiceTest se amplió a 32 casos, incluidos los 16 cruces actor/rol de creación, perfiles requeridos/prohibidos, bloqueos de promoción y de edición/eliminación de cuentas privilegiadas por Administrador, y conversión entre tipos de cuenta. AuthRegistroControllerTest agrega tres pruebas MockMvc standalone: 201 sin contraseña, email anidado inválido y perfil ausente con 400 antes del service.
+- mvnw.cmd -Dtest=RegistroClienteServiceTest,TuristaServiceTest,AuthRegistroControllerTest test aprobó 44 pruebas con BUILD SUCCESS. MockMvc standalone no incluye la cadena de seguridad ni MySQL: todavía falta verificar el registro anónimo, los dos registros persistidos, el rollback por email duplicado y la jerarquía por HTTP real. No se modificaron tablas ni datos de MySQL en este paso.
+- README actualizado con el endpoint, ejemplos, perfiles obligatorios de Clientes y alcance de permisos. Login por email continúa pendiente; por ahora el login sigue usando nombre.
+- Verificación manual del 24/10: tras probar el JSON de registro público, el usuario confirmó que pudo registrar un Cliente e iniciar sesión con su nombre de usuario. No confirmó todavía la consulta de los dos registros con ID compartido ni el rollback por email duplicado; esos casos continúan pendientes.
+
 ## Tareas Pendientes (Backlog)
 - [x] Implementar el módulo completo de Usuario (Controller, Service, Mapper, DTOs).
 - [x] Implementar el módulo completo de Turista (Controller, Service, Mapper, DTOs).
@@ -112,25 +154,39 @@
 - [x] Probar logout sin token y nuevo login con la misma contraseña seguido de acceso con el nuevo JWT.
 - [ ] Completar pruebas HTTP de logout con otros roles y otros tokens de la cuenta.
 - [ ] Definir renovación de JWT y revisar CORS para el frontend.
-- [ ] Corregir la regla del listado de clientes para Vendedor: el controlador expone /api/usuarios/clientes, pero SecurityConfig permite /api/clientes; actualmente la ruta real queda restringida a Administrador/Dueño.
+- [x] Corregir la regla del listado de clientes para Vendedor a /api/usuarios/clientes.
+- [ ] Verificar por HTTP el listado de clientes como Vendedor con sucursal y los rechazos a otros roles sin permiso.
+- [x] Preparar email único en MySQL, validar duplicados en creación/edición de turistas y eliminar Cliente de prueba sin Turista.
+- [x] Reutilizar TuristaRequest sin idUsuario, conservar la relación al editar y recibir el ID por ruta en la creación de gestión.
+- [ ] Verificar por HTTP la edición de turistas conservando la cuenta relacionada.
+- [x] Implementar registro público de Cliente y Turista juntos dentro de una transacción.
+- [x] Crear RegistroClienteRequest con credenciales y TuristaRequest anidado validado.
+- [x] Agregar el método transaccional de registro con rol Cliente fijo desde el servidor y pruebas unitarias.
+- [x] Conectar el endpoint público de registro y permitir solamente su POST exacto.
+- [x] Confirmar manualmente registro público y posterior login con nombre de usuario.
+- [ ] Verificar los dos registros con ID compartido y el rollback por email duplicado en MySQL.
+- [x] Implementar jerarquía de creación y asignación de roles: Dueño puede asignar todos; Administrador solo Vendedor/Cliente.
+- [ ] Verificar por HTTP la creación conjunta desde gestión y la jerarquía al crear/editar/eliminar.
+- [ ] Implementar y probar login por email para Clientes.
 - [ ] Implementar ranking de vendedores según sus ventas para el Dueño.
 
 ## Problemas o Bugs Conocidos
 - Completar las pruebas manuales y definir permisos adicionales del Cliente antes de considerar completa la seguridad.
 - Revisar el manejo de errores si un 404/400 esperado termina en 401 al pasar por el despacho interno de errores. Ya se observó un 401 durante una creación de sucursal con datos inválidos; causa del despacho no confirmada con una prueba de integración. SecurityConfig no tiene una regla explícita para DispatcherType.ERROR. No dar por probado el 404 HTTP de ResponseStatusException solo por revisar el código.
-- El listado de cuentas Cliente tiene una ruta distinta en SecurityConfig y UsuarioController. Aunque el service contempla al Vendedor con sucursal, la regla general /api/usuarios/** lo bloquea antes de llegar al service. No confundir este listado con la consulta de turistas, que sí está habilitada para Vendedor.
+- El matcher del listado de cuentas Cliente ya coincide con el controlador. Su verificación HTTP con Vendedor sigue pendiente; no presentar el antiguo desajuste de rutas como un problema todavía vigente.
 
 ## Continuación en Otro Chat
 1. Leer Agents.md y este Memory.md, y revisar el código actual antes de proponer cambios.
-2. Continuar la enseñanza corrigiendo el matcher del listado de clientes para Vendedor: la ruta real es GET /api/usuarios/clientes y su excepción debe estar antes de la regla general /api/usuarios/**. El logout global ya fue implementado y probado con Administrador; también se confirmó el rechazo sin token y el nuevo login. Quedan pendientes otros roles y la prueba con dos tokens de la misma cuenta; no repetir los casos ya confirmados.
+2. Retomar por pruebas de registro en Postman: POST /api/auth/registro con No Auth y credenciales más el perfil anidado debe devolver 201 y crear Usuario Cliente + Turista con el mismo ID. Comprobar con MySQL o con GET de turista usando Administrador. Después probar duplicados y rollback, creación desde gestión y jerarquía. Endpoint, perfiles obligatorios y permisos ya están implementados; no repetirlos. Luego continuar login por email para Clientes. Mostrar siempre los bloques modificados y mantener pasos pequeños.
 3. Completar las pruebas manuales de DELETE /api/paquetes-reservas/{id}. Usar reservas de prueba de dos sucursales, confirmar estados y ausencia de borrado al rechazar. Si aparece 401 en vez de 404, investigar el despacho de errores.
 4. Confirmar en Postman creación, actualización y precios: 0/10/20 % sobre el precio base; al editar una reserva de un compañero conservar vendedorId; impedir cambio a un paquete de otra sucursal.
-5. Verificar token vencido y token de usuario eliminado; corregir la ruta del listado de clientes para Vendedor, definir permisos adicionales del Cliente, revisar rutas sin regla específica (actualmente anyRequest().authenticated()), y decidir renovación y CORS cuando corresponda.
+5. Verificar token vencido y token de usuario eliminado; probar el listado de clientes como Vendedor (ruta ya corregida), completar pruebas de logout con otros roles y dos tokens, definir permisos adicionales del Cliente, revisar rutas sin regla específica (actualmente anyRequest().authenticated()), y decidir renovación y CORS cuando corresponda.
 6. Retomar el ranking del Dueño después: existe consulta por monto vendido, falta endpoint/DTO y pruebas. Revisar también que los turistas estén vinculados a usuarios con rol Cliente.
 
 ### Preferencias de Enseñanza
 - Explicar en español argentino, desde cero, lento y por pasos pequeños, con emojis y ejemplos concretos.
 - El usuario prefiere implementar los ejercicios y pedir revisión. Modificar su código cuando lo pida explícitamente; en este chat pidió ayuda directa para separar los métodos y proteger actualización.
 - Hacer preguntas de comprensión cuando sean útiles, sin cantidad fija. No avanzar varios temas juntos.
+- Preferencia del usuario del 13/10: cada vez que se modifique código, mostrar el archivo y el bloque modificado (antes/después cuando ayude), explicar qué hace y por qué, e indicar cómo se verificó y qué queda pendiente. No limitarse a decir que el cambio está hecho.
 - Se explicaron BigDecimal, factor inicial 1 (=100 %), adicional 0.10 y setScale(2, HALF_UP). Ejemplo correcto: 25.678 se redondea a 25.68.
 - Usa NetBeans en Windows 10 y Postman; no registrar JWT_SECRET, tokens ni credenciales nuevas en esta memoria.
