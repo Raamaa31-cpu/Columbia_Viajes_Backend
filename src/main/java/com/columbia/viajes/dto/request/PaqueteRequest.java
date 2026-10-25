@@ -26,9 +26,6 @@ public record PaqueteRequest(
     @DecimalMin(value = "0.0", inclusive = true, message = "El precio no puede ser un valor negativo")
     BigDecimal precio,
 
-    @Size(max = 255, message = "La URL de la imagen no puede exceder los 255 caracteres")
-    String imagen,
-
     @NotNull(message = "El ID de la sucursal es obligatorio")
     Integer idSucursal,
 

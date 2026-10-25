@@ -9,6 +9,7 @@ import com.columbia.viajes.model.Vuelo;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.Named;
 
 @Mapper(componentModel = "spring")
 public interface PaqueteMapper {
@@ -17,7 +18,16 @@ public interface PaqueteMapper {
     @Mapping(source = "vueloIda.id", target = "vueloIdaId")
     @Mapping(source = "vueloVuelta.id", target = "vueloVueltaId")
     @Mapping(source = "hotel.id", target = "hotelId")
+    @Mapping(source = "paquete", target = "imagen", qualifiedByName = "urlImagen")
     PaqueteResponse toPaqueteResponse(Paquete paquete);
+
+    @Named("urlImagen")
+    default String urlImagen(Paquete paquete) {
+        if (paquete == null || paquete.getImagen() == null || paquete.getId() == null) {
+            return null;
+        }
+        return "/api/paquetes/" + paquete.getId() + "/imagen";
+    }
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "fechaCreacion", ignore = true)
@@ -30,7 +40,7 @@ public interface PaqueteMapper {
     @Mapping(target = "fechaLlegadaHotel", source = "request.fechaLlegadaHotel")
     @Mapping(target = "fechaPartidaHotel", source = "request.fechaPartidaHotel")
     @Mapping(target = "precio", source = "request.precio")
-    @Mapping(target = "imagen", source = "request.imagen")
+    @Mapping(target = "imagen", ignore = true)
     Paquete toPaquete(PaqueteRequest request, Sucursal sucursal, Vuelo vueloIda, Vuelo vueloVuelta, Hotel hotel);
 
     @Mapping(target = "id", ignore = true)
@@ -44,7 +54,7 @@ public interface PaqueteMapper {
     @Mapping(target = "fechaLlegadaHotel", source = "request.fechaLlegadaHotel")
     @Mapping(target = "fechaPartidaHotel", source = "request.fechaPartidaHotel")
     @Mapping(target = "precio", source = "request.precio")
-    @Mapping(target = "imagen", source = "request.imagen")
+    @Mapping(target = "imagen", ignore = true)
     void actualizarPaquete(PaqueteRequest request, Sucursal sucursal, Vuelo vueloIda, Vuelo vueloVuelta, Hotel hotel, @MappingTarget Paquete paquete);
 
 }

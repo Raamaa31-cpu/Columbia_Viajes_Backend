@@ -10,6 +10,7 @@ import com.columbia.viajes.repository.*;
 import com.columbia.viajes.service.CiudadService;
 import com.columbia.viajes.service.HotelService;
 import com.columbia.viajes.service.PaqueteService;
+import com.columbia.viajes.service.ImagenService;
 import java.util.List;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -78,7 +79,8 @@ class FiltroNombreControllerTest {
                 Paquete entidad = new Paquete();
                 entidad.setNombre("Costa Azul");
                 PaqueteService service = new PaqueteService(repository, mock(SucursalRepository.class),
-                        mock(VueloRepository.class), mock(HotelRepository.class), Mappers.getMapper(PaqueteMapper.class));
+                        mock(VueloRepository.class), mock(HotelRepository.class), Mappers.getMapper(PaqueteMapper.class),
+                        mock(ImagenService.class));
                 yield escenario(new PaqueteController(service), repository, entidad);
             }
             case "ciudades" -> {

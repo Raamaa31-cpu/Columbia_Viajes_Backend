@@ -52,7 +52,9 @@ SOURCE schema.sql;
 
 **La importación de `schema.sql` reemplaza las tablas existentes de la base seleccionada.** Usalo para preparar una base de desarrollo que pueda reemplazarse.
 
-El archivo contiene la estructura de nueve tablas y una copia de datos de prueba: ciudades, roles, sucursales y usuarios con hashes BCrypt. Las tablas de hoteles, vuelos, paquetes, turistas y reservas están vacías en esa copia. También incluye `usuarios.version_autenticacion`, necesario para la revocación de tokens.
+El archivo contiene la estructura de nueve tablas y una copia de los datos locales exportada el 25/10/2026: 22 registros entre ciudades, hoteles, paquetes, reservas, roles, sucursales, turistas, usuarios y vuelos. Incluye el Cliente `juan_viajes` con su perfil, los vuelos y hotel de Bariloche, el paquete 1 y su reserva, además de los hashes BCrypt y las versiones de autenticación actuales. El paquete temporal usado para verificar imágenes ya fue eliminado y no forma parte de la copia.
+
+La imagen del paquete 1 se referencia como `c5442565-bb68-485f-962e-ba501924ddaf.png`. Para verla después de importar, también necesitás el archivo correspondiente dentro de `uploads/paquetes`, compartido junto con el proyecto. El SQL guarda la referencia, no los bytes de la foto.
 
 Hibernate usa `ddl-auto=validate`: comprueba que las tablas coincidan con las entidades, pero no las crea ni las modifica. El archivo SQL tampoco se actualiza automáticamente cuando cambian los datos de MySQL.
 
@@ -109,7 +111,7 @@ La API queda disponible en `http://localhost:8080`. Si ejecutás desde un IDE, c
 
 ### Cuentas de prueba
 
-El SQL incluye cuentas como `prueba_admin`, `prueba_duenio` y vendedores asociados a sucursales. Sus contraseñas están almacenadas como hashes; para iniciar sesión necesitás conocer la contraseña original correspondiente. La antigua cuenta Cliente `prueba_security` se eliminó porque no tenía un Turista asociado.
+El SQL incluye cuentas como `prueba_admin`, `prueba_duenio`, vendedores asociados a sucursales y el Cliente `juan_viajes` con su perfil de Turista. Sus contraseñas están almacenadas como hashes; para iniciar sesión necesitás conocer la contraseña correspondiente a la cuenta. La antigua cuenta Cliente `prueba_security` se eliminó porque no tenía un Turista asociado.
 
 El registro público crea únicamente cuentas Cliente. Para configurar el acceso inicial de gestión, si desconocés las contraseñas de las cuentas importadas, asigná una contraseña propia a una cuenta de prueba usando un hash BCrypt generado con `BCryptPasswordEncoder`. No hay recuperación de contraseña implementada. Por ejemplo, en un entorno Java con las dependencias del proyecto:
 
@@ -291,7 +293,7 @@ Sin ningún filtro se devuelve el listado completo. Si no hay coincidencias, inc
 
 Las consultas combinadas de hoteles y paquetes están definidas con JPQL en sus repositorios. Los controladores reciben los parámetros y los services llaman a `buscar(...)`, conservando la conversión a los DTOs de respuesta. Ciudades conserva la búsqueda compartida de `RepositorioConNombre`.
 
-Pruebas manuales confirmadas en Postman con los datos locales de ejemplo: filtros de hoteles y listado sin filtros; para paquetes, `nombre=bariloche&idCiudad=4&idHotel=1` devuelve el paquete de prueba y la misma búsqueda con `idCiudad=1` devuelve `[]`. Estos IDs corresponden a los datos locales creados para practicar y no se garantizan al importar `schema.sql`.
+Pruebas manuales confirmadas en Postman con los datos locales de ejemplo: filtros de hoteles y listado sin filtros; para paquetes, `nombre=bariloche&idCiudad=4&idHotel=1` devuelve el paquete de prueba y la misma búsqueda con `idCiudad=1` devuelve `[]`. Estos datos están incluidos en la exportación de `schema.sql` del 25/10/2026; los IDs pueden diferir si se usan otros datos o una base modificada posteriormente.
 
 | Recurso | Ruta base | Operaciones disponibles |
 | --- | --- | --- |
@@ -332,6 +334,71 @@ Rutas adicionales:
 Los GET de catálogo son públicos. El resto de los permisos se detalla en la tabla anterior. Para los campos de cada solicitud y respuesta, consultá [dto/request](src/main/java/com/columbia/viajes/dto/request) y [dto/response](src/main/java/com/columbia/viajes/dto/response).
 
 Los perfiles de turistas se crean junto con la cuenta Cliente mediante registro público o creación de gestión. No existe un POST independiente de turistas. El JSON de `TuristaRequest` contiene únicamente `nombre`, `apellidos`, `direccion`, `email` y `telefono`. Al editar mediante `PUT /api/turistas/{id}`, se conserva el Usuario relacionado.
+
+## 🖼️ Imágenes de paquetes
+
+Cada paquete tiene una única imagen. MySQL guarda el nombre UUID.png del archivo, mientras que `PaqueteResponse.imagen` devuelve su URL relativa, por ejemplo `/api/paquetes/1/imagen`, o `null` si el paquete no tiene una imagen asociada. Esta conversión se aplica al listado, detalle, creación y actualización mediante el mapper. `PaqueteRequest` contiene los datos del paquete; la foto llega como archivo multipart, fuera de ese JSON. Se puede cargar al crear el paquete o después. Editar los datos generales conserva la imagen actual.
+
+Para **crear un paquete, con o sin imagen**, usá `POST /api/paquetes` con JWT de Administrador/Dueño y **Body → form-data**:
+
+| Clave | Tipo en Postman | Contenido | Content-Type de la parte |
+| --- | --- | --- | --- |
+| `paquete` | Text | JSON de `PaqueteRequest` | `application/json` |
+| `imagen` | File | Foto JPEG o PNG (opcional) | El correspondiente al archivo |
+
+La parte `paquete` es obligatoria y se valida con `@Valid`. Indicá `application/json` en esa fila: enviarla como `text/plain` produce `415`. No fijes manualmente el Content-Type general: Postman debe generar `multipart/form-data` con su boundary.
+
+Ejemplo del texto de la parte `paquete` (los IDs deben existir en la base local):
+
+```json
+{
+  "nombre": "Bariloche con imagen",
+  "descripcion": "Vuelos y siete noches de hotel",
+  "fechaLlegadaHotel": "2026-11-15",
+  "fechaPartidaHotel": "2026-11-22",
+  "precio": 850000.00,
+  "idSucursal": 2,
+  "idVueloIda": 1,
+  "idVueloVuelta": 2,
+  "idHotel": 1
+}
+```
+
+Devuelve `201` con el paquete y su referencia de imagen. Si se omite el archivo se crea sin foto; si se envía vacío o inválido se rechaza la creación. Se reutiliza la limpieza transaccional para retirar el archivo nuevo si falla el guardado o se revierte la transacción. Hay un único método `crear` en el controlador y uno en el servicio: el POST acepta únicamente `multipart/form-data`; enviar JSON como cuerpo completo devuelve `415`. El JSON se envía dentro de la parte `paquete`, incluso al crear sin foto. La parte de archivo nunca se agrega como String a `PaqueteRequest`.
+
+Para **cargar o reemplazar después**, usá:
+
+```http
+PUT /api/paquetes/{id}/imagen
+Authorization: Bearer <token>
+Content-Type: multipart/form-data; boundary=...
+```
+
+En Postman: elegí **PUT**, usá un JWT de Administrador o Dueño, seleccioná **Body → form-data** y agregá la clave **imagen**, de tipo **File**, con una foto JPEG o PNG. Dejá que Postman genere el encabezado Content-Type con su boundary; no lo escribas manualmente. El ID de la ruta identifica al paquete creado previamente.
+
+La respuesta exitosa es `200` con `PaqueteResponse`, cuyo campo `imagen` contiene la URL relativa `/api/paquetes/{id}/imagen`. Repetir el PUT reemplaza la imagen asociada y programa la eliminación de la anterior. No se reciben listas de imágenes ni los otros datos del paquete en este endpoint.
+
+Para **visualizar la foto**, abrí la URL devuelta:
+
+```http
+GET /api/paquetes/1/imagen
+```
+
+La lectura es pública y devuelve el archivo con `Content-Type: image/png`; no requiere JWT. Responde `404` si el paquete no existe, no tiene foto o su archivo ya no está disponible. Solo se leen archivos regulares con nombres administrados por la aplicación dentro del directorio configurado; no se aceptan rutas arbitrarias ni enlaces simbólicos.
+
+La respuesta usa `Cache-Control: no-cache` y un `ETag` basado en el archivo actual. El navegador debe revalidar: si la imagen no cambió puede recibir `304` sin reenviar los bytes; al reemplazarla cambia el ETag. Si el frontend se ejecuta en otro origen, debe anteponer la dirección base del backend a la URL relativa (por ejemplo `http://localhost:8080`).
+
+La regla existente de `/api/paquetes/**` restringe la carga a Administrador/Dueño: sin autenticación devuelve `401` y con Cliente/Vendedor devuelve `403`. Paquete inexistente devuelve `404`, archivo faltante/inválido `400`, JSON en lugar de multipart `415` y exceso de tamaño detectado por Spring `413`. El manejador global responde directamente a ResponseStatusException y MaxUploadSizeExceededException para conservar esos estados sin depender del despacho de errores.
+
+El almacenamiento local usa `app.imagenes.directorio=uploads/paquetes`. Admite JPEG/PNG reconocidos por contenido, con hasta 4096 píxeles por lado, y guarda el resultado como PNG con nombre UUID. El límite HTTP configurado es de 5 MB por archivo y 6 MB por solicitud. Los archivos de prueba se compartirán mediante Git por decisión del equipo; las referencias correspondientes deben existir también en la base local de cada integrante.
+
+`PaqueteService` comparte `asignarImagen` entre creación y reemplazo. Al reemplazar conserva la imagen anterior hasta confirmar la transacción; si se revierte, limpia la nueva. El borrado del paquete también limpia su imagen después de confirmar. Los fallos de limpieza se registran y pueden dejar archivos huérfanos; el sistema de archivos no participa en la transacción de MySQL.
+
+El flujo principal se verificó contra servidor y MySQL reales con autenticación de Dueño: creación multipart con foto `201`, lectura pública `200`, reemplazo `200` con nueva referencia y eliminación del archivo anterior, actualización de contenido/ETag, archivo inválido rechazado con `400` sin perder la foto vigente y revalidación `304`. El paquete temporal creado para verificarlo se eliminó con `204`, comprobando también la limpieza de su foto. El paquete 1 y su imagen original de Bariloche se conservaron. Esta comprobación no prueba concurrencia ni rollback real ante un fallo posterior de persistencia.
+
+`PaqueteImagenControllerTest` verifica el enlace multipart, los estados HTTP y los permisos con la configuración y filtros de seguridad reales, simulando el service, la lectura de JWT y la carga de usuarios. No utiliza MySQL, no escribe imágenes reales ni verifica los límites del parser multipart de un servidor HTTP; el caso `413` simula la excepción informada por Spring.
+
+La verificación de lectura incluyó 71 casos aprobados entre archivos, service y controller. Además, con la aplicación iniciada temporalmente en 8081 contra MySQL, se comprobó sin token que detalle/listado devuelven la URL, que la descarga devuelve `200 image/png` y los mismos 513712 bytes del archivo local del paquete 1, que If-None-Match devuelve `304` y que un paquete inexistente devuelve `404`. No se modificaron datos de MySQL en esa comprobación; allí se conserva el nombre del archivo.
 
 ## 🧳 Reservas y cálculo del precio
 

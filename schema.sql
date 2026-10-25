@@ -1,6 +1,7 @@
--- Estructura y datos actuales de columbia_viajes, exportados el 12/10/2026.
+-- Estructura y datos actuales de columbia_viajes, exportados el 25/10/2026.
 -- Incluye las contrasenias tal como estan almacenadas en la base (hashes BCrypt).
 -- Al importar, este archivo reemplaza las tablas existentes de la base seleccionada.
+-- La foto del paquete se comparte por separado en uploads/paquetes; aqui se guarda su referencia.
 
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
@@ -31,7 +32,7 @@ CREATE TABLE `ciudades` (
   `nombre` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_ciudades_nombre` (`nombre`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -44,6 +45,7 @@ LOCK TABLES `ciudades` WRITE;
 INSERT INTO `ciudades` (`id`, `nombre`) VALUES (1,'CABA');
 INSERT INTO `ciudades` (`id`, `nombre`) VALUES (2,'Rio de Janeiro');
 INSERT INTO `ciudades` (`id`, `nombre`) VALUES (3,'Cusco');
+INSERT INTO `ciudades` (`id`, `nombre`) VALUES (4,'Bariloche');
 /*!40000 ALTER TABLE `ciudades` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -64,7 +66,7 @@ CREATE TABLE `hoteles` (
   PRIMARY KEY (`id`),
   KEY `fk_hoteles_ciudad` (`id_ciudad`),
   CONSTRAINT `fk_hoteles_ciudad` FOREIGN KEY (`id_ciudad`) REFERENCES `ciudades` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -74,6 +76,7 @@ CREATE TABLE `hoteles` (
 
 LOCK TABLES `hoteles` WRITE;
 /*!40000 ALTER TABLE `hoteles` DISABLE KEYS */;
+INSERT INTO `hoteles` (`id`, `nombre`, `direccion`, `id_ciudad`, `telefono`, `plazas_totales`) VALUES (1,'Hotel Lago Azul - Prueba','Av. del Lago 1500 - Dato ficticio',4,'0000000000',80);
 /*!40000 ALTER TABLE `hoteles` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -108,7 +111,7 @@ CREATE TABLE `paquetes` (
   CONSTRAINT `fk_paquetes_vuelo_vuelta` FOREIGN KEY (`id_vuelo_vuelta`) REFERENCES `vuelos` (`id`),
   CONSTRAINT `chk_paquetes_fechas` CHECK ((`fecha_partida_hotel` > `fecha_llegada_hotel`)),
   CONSTRAINT `chk_paquetes_precio` CHECK ((`precio` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -118,6 +121,7 @@ CREATE TABLE `paquetes` (
 
 LOCK TABLES `paquetes` WRITE;
 /*!40000 ALTER TABLE `paquetes` DISABLE KEYS */;
+INSERT INTO `paquetes` (`id`, `id_sucursal`, `id_vuelo_ida`, `id_vuelo_vuelta`, `id_hotel`, `nombre`, `descripcion`, `fecha_llegada_hotel`, `fecha_partida_hotel`, `precio`, `fecha_creacion`, `imagen`) VALUES (1,2,1,2,1,'Bariloche entre lagos - Prueba','Paquete ficticio para practicar: vuelos CABA-Bariloche ida y vuelta y siete noches de hotel.','2026-11-15','2026-11-22',850000.00,'2026-10-25 16:14:50','c5442565-bb68-485f-962e-ba501924ddaf.png');
 /*!40000 ALTER TABLE `paquetes` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -145,7 +149,7 @@ CREATE TABLE `paquetes_reservas` (
   CONSTRAINT `fk_reservas_turista` FOREIGN KEY (`id_turista`) REFERENCES `turistas` (`id`),
   CONSTRAINT `fk_reservas_vendedor` FOREIGN KEY (`id_vendedor`) REFERENCES `usuarios` (`id`),
   CONSTRAINT `chk_reservas_precio` CHECK ((`precio_reserva` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -155,6 +159,7 @@ CREATE TABLE `paquetes_reservas` (
 
 LOCK TABLES `paquetes_reservas` WRITE;
 /*!40000 ALTER TABLE `paquetes_reservas` DISABLE KEYS */;
+INSERT INTO `paquetes_reservas` (`id`, `id_paquete`, `id_turista`, `clase_vuelo`, `fecha_reserva`, `regimen_hospedaje`, `precio_reserva`, `id_vendedor`) VALUES (1,1,7,'PRIMERA','2026-10-25 16:14:50','PENSION_COMPLETA',1020000.00,4);
 /*!40000 ALTER TABLE `paquetes_reservas` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -242,6 +247,7 @@ CREATE TABLE `turistas` (
 
 LOCK TABLES `turistas` WRITE;
 /*!40000 ALTER TABLE `turistas` DISABLE KEYS */;
+INSERT INTO `turistas` (`id`, `nombre`, `apellidos`, `direccion`, `email`, `telefono`) VALUES (7,'Juan','Pérez','Av. Corrientes 1234','juan.perez@example.com','1123456789');
 /*!40000 ALTER TABLE `turistas` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -266,7 +272,7 @@ CREATE TABLE `usuarios` (
   KEY `fk_usuario_sucursal` (`id_sucursal`),
   CONSTRAINT `fk_usuario_sucursal` FOREIGN KEY (`id_sucursal`) REFERENCES `sucursales` (`id`),
   CONSTRAINT `fk_usuarios_rol` FOREIGN KEY (`id_rol`) REFERENCES `roles` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -277,10 +283,11 @@ CREATE TABLE `usuarios` (
 LOCK TABLES `usuarios` WRITE;
 /*!40000 ALTER TABLE `usuarios` DISABLE KEYS */;
 INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (2,'prueba_admin','$2a$10$mgqaD5KjnNZJfOwUG523GOkpY8GaNsJ1SIqsIdKUOXb7zLArXU2fK',3,'2026-10-09 00:32:48',NULL,3);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (3,'prueba_duenio','$2a$10$Hi7yG0TC2LJlsUMk6uHr.uJHBt/I6E87Ns19FGRkBQsKPlJ3OtgrG',4,'2026-10-09 00:32:48',NULL,0);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (4,'vendedor_a1','$2a$10$BQr88dfKVuuab6X8QF.DaOgjoJL8o4dgJdYLB.7fQlzkSaoWo43GS',2,'2026-10-10 16:57:51',2,0);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (5,'vendedor_a2','$2a$10$zSCxe9FLxQX8IyNlAkPx2OlqwJGhUv6WURi.WmYOfPgCbCYBmtSjK',2,'2026-10-10 16:58:10',2,0);
-INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (6,'vendedor_b1','$2a$10$L7NbMgOc.bEGkDayIRJYruAyQacZ0njw0iaHgivc.CT4xRXDyOmN.',2,'2026-10-10 16:58:20',3,0);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (3,'prueba_duenio','$2a$10$0dUOif8nsMPQ3lPtbG/6M.fKxLl3ylrh/624/fqIEIYoWrj3spkIu',4,'2026-10-09 00:32:48',NULL,1);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (4,'vendedor_a1','$2a$10$.It8uUxhHSQx/FZrTKuXU.xxT9/oLBBpuBJgbWQTb0i2LCbcYtv7y',2,'2026-10-10 16:57:51',2,1);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (5,'vendedor_a2','$2a$10$dP/9gh9tOXKHKh3e.r7xSevxoMHtQ9wDkKS6cfu8kPCaiW/zDE7uq',2,'2026-10-10 16:58:10',2,1);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (6,'vendedor_b1','$2a$10$VY9h.GYzOA7RdvdmqCw4Tu2N9AVwZqfTmmHUaaakoTc1hiSoY1rIy',2,'2026-10-10 16:58:20',3,1);
+INSERT INTO `usuarios` (`id`, `nombre`, `contrasenia`, `id_rol`, `fecha_creacion`, `id_sucursal`, `version_autenticacion`) VALUES (7,'juan_viajes','$2a$10$HXWmDhiRDqqRZ471z0VBj.nxCo.zCawiHxOabbEcFAVl/7xHdK2ra',1,'2026-10-24 15:12:28',NULL,1);
 /*!40000 ALTER TABLE `usuarios` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -306,7 +313,7 @@ CREATE TABLE `vuelos` (
   CONSTRAINT `fk_vuelos_origen` FOREIGN KEY (`id_ciudad_origen`) REFERENCES `ciudades` (`id`),
   CONSTRAINT `chk_vuelos_ciudades` CHECK ((`id_ciudad_origen` <> `id_ciudad_destino`)),
   CONSTRAINT `chk_vuelos_fechas` CHECK ((`fecha_llegada` > `fecha_salida`))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -316,6 +323,8 @@ CREATE TABLE `vuelos` (
 
 LOCK TABLES `vuelos` WRITE;
 /*!40000 ALTER TABLE `vuelos` DISABLE KEYS */;
+INSERT INTO `vuelos` (`id`, `id_ciudad_origen`, `id_ciudad_destino`, `fecha_salida`, `fecha_llegada`, `plazas_turista_totales`, `plazas_primera_totales`) VALUES (1,1,4,'2026-11-15 08:00:00','2026-11-15 10:20:00',120,12);
+INSERT INTO `vuelos` (`id`, `id_ciudad_origen`, `id_ciudad_destino`, `fecha_salida`, `fecha_llegada`, `plazas_turista_totales`, `plazas_primera_totales`) VALUES (2,4,1,'2026-11-22 18:00:00','2026-11-22 20:20:00',120,12);
 /*!40000 ALTER TABLE `vuelos` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -336,4 +345,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-12  0:57:00
+-- Dump completed on 2026-10-25 19:52:10

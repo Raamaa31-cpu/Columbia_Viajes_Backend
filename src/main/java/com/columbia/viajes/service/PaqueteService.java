@@ -11,14 +11,22 @@ import com.columbia.viajes.repository.HotelRepository;
 import com.columbia.viajes.repository.PaqueteRepository;
 import com.columbia.viajes.repository.SucursalRepository;
 import com.columbia.viajes.repository.VueloRepository;
-import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaqueteService {
 
     private final PaqueteRepository paqueteRepository;
@@ -26,6 +34,7 @@ public class PaqueteService {
     private final VueloRepository vueloRepository;
     private final HotelRepository hotelRepository;
     private final PaqueteMapper paqueteMapper;
+    private final ImagenService imagenService;
 
     public List<PaqueteResponse> listar(String nombre, Integer idCiudad, Integer idHotel) {
         nombre = nombre != null ? nombre.strip() : nombre;
@@ -41,8 +50,27 @@ public class PaqueteService {
                 .map(paqueteMapper::toPaqueteResponse);
     }
 
+    public Resource obtenerImagen(Integer id) {
+        Paquete paquete = paqueteRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "No se encontró el paquete."
+                ));
+        return imagenService.obtener(paquete.getImagen());
+    }
+
     @Transactional
-    public PaqueteResponse crear(PaqueteRequest request) {
+    public PaqueteResponse actualizarImagen(Integer id, MultipartFile archivo) {
+        Paquete paquete = paqueteRepository.findByIdParaActualizar(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "No se encontró el paquete."
+                ));
+
+        asignarImagen(paquete, archivo);
+        return paqueteMapper.toPaqueteResponse(paqueteRepository.save(paquete));
+    }
+
+    @Transactional
+    public PaqueteResponse crear(PaqueteRequest request, MultipartFile imagen) {
         Sucursal sucursal = sucursalRepository.findById(request.idSucursal())
                 .orElseThrow(() -> new IllegalArgumentException("La sucursal con ID " + request.idSucursal() + " no existe."));
 
@@ -58,13 +86,16 @@ public class PaqueteService {
         validarReglasDePaquete(request);
 
         Paquete paqueteNuevo = paqueteMapper.toPaquete(request, sucursal, vueloIda, vueloVuelta, hotel);
+        if (imagen != null) {
+            asignarImagen(paqueteNuevo, imagen);
+        }
         Paquete paqueteGuardado = paqueteRepository.save(paqueteNuevo);
         return paqueteMapper.toPaqueteResponse(paqueteGuardado);
     }
 
     @Transactional
     public Optional<PaqueteResponse> actualizar(Integer id, PaqueteRequest request) {
-        return paqueteRepository.findById(id)
+        return paqueteRepository.findByIdParaActualizar(id)
                 .map(paquete -> {
                     Sucursal sucursal = sucursalRepository.findById(request.idSucursal())
                             .orElseThrow(() -> new IllegalArgumentException("La sucursal con ID " + request.idSucursal() + " no existe."));
@@ -89,10 +120,42 @@ public class PaqueteService {
 
     @Transactional
     public void eliminar(Integer id) {
-        Paquete paquete = paqueteRepository.findById(id)
+        Paquete paquete = paqueteRepository.findByIdParaActualizar(id)
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el paquete con ID " + id));
 
         paqueteRepository.delete(paquete);
+        programarLimpiezaImagenes(paquete.getImagen(), null);
+    }
+
+    private void asignarImagen(Paquete paquete, MultipartFile archivo) {
+        String anterior = paquete.getImagen();
+        String nueva = imagenService.guardar(archivo);
+        programarLimpiezaImagenes(anterior, nueva);
+        paquete.setImagen(nueva);
+    }
+
+    private void programarLimpiezaImagenes(String anterior, String nueva) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int estado) {
+                String nombre;
+                if (estado == STATUS_COMMITTED) {
+                    nombre = anterior;
+                } else if (estado == STATUS_ROLLED_BACK) {
+                    nombre = nueva;
+                } else {
+                    return;
+                }
+
+                if (nombre != null) {
+                    try {
+                        imagenService.eliminar(nombre);
+                    } catch (RuntimeException e) {
+                        log.warn("No se pudo limpiar el archivo de imagen {}.", nombre, e);
+                    }
+                }
+            }
+        });
     }
     
     private void validarReglasDePaquete(PaqueteRequest request){

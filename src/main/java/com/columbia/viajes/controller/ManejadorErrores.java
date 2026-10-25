@@ -8,9 +8,21 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class ManejadorErrores {
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<String> estadoHttp(ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<String> cargaDemasiadoGrande(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(413).body("La carga supera el tamaño permitido.");
+    }
     
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> datosInvalidos(IllegalArgumentException e){
