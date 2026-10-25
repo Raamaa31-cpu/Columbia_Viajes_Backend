@@ -27,8 +27,8 @@ public class PaqueteService {
     private final HotelRepository hotelRepository;
     private final PaqueteMapper paqueteMapper;
 
-    public List<PaqueteResponse> listar() {
-        return paqueteRepository.findAll()
+    public List<PaqueteResponse> listar(String nombre) {
+        return paqueteRepository.listarPorNombre(nombre)
                 .stream()
                 .map(paqueteMapper::toPaqueteResponse)
                 .toList();

@@ -21,8 +21,8 @@ public class HotelService {
     
     private final HotelMapper hotelMapper;
 
-    public List<HotelResponse> listar() {
-        return hotelRepository.findAll()
+    public List<HotelResponse> listar(String nombre) {
+        return hotelRepository.listarPorNombre(nombre)
                 .stream()
                 .map(hotelMapper::toHotelResponse)
                 .toList();

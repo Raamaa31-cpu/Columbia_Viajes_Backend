@@ -252,7 +252,8 @@ Cada usuario tiene un único rol: `Administrador`, `Dueño`, `Vendedor` o `Clien
 | Listar cuentas Cliente | No | No | Todas, con sucursal asignada | Sí |
 | Consultar usuarios y gestionar cuentas según jerarquía | No | No | No | Sí, con las restricciones indicadas abajo |
 | Consultar roles | No | No | No | Sí |
-| Consultar, crear, editar y eliminar reservas | No | No | De su sucursal | De todas las sucursales |
+| Listar y consultar reservas por ID | No | Propias | De su sucursal | Todas |
+| Crear, editar y eliminar reservas | No | No | De su sucursal | De todas las sucursales |
 | Cambiar su propia contraseña | No | Sí | Sí | Sí |
 | Cerrar todas las sesiones de su cuenta | No | Sí | Sí | Sí |
 
@@ -265,6 +266,16 @@ El Vendedor puede gestionar reservas de compañeros de su misma sucursal. Al cre
 ## 📡 Endpoints
 
 Todas las rutas usan el prefijo `/api`.
+
+Los listados de paquetes, ciudades y hoteles aceptan el parámetro opcional `nombre`:
+
+```http
+GET /api/paquetes?nombre=aventura
+GET /api/ciudades?nombre=rio
+GET /api/hoteles?nombre=plaza
+```
+
+La búsqueda encuentra nombres que contienen el texto, sin distinguir mayúsculas y minúsculas. Se quitan los espacios de los extremos. Si se omite `nombre`, se envía vacío o solo con espacios, devuelve el listado completo. Sin coincidencias devuelve `200` con `[]`. Estos GET conservan su acceso público.
 
 | Recurso | Ruta base | Operaciones disponibles |
 | --- | --- | --- |
@@ -296,6 +307,9 @@ Rutas adicionales:
 | `POST` | `/api/auth/registro` | Registro público de Cliente y Turista juntos |
 | `POST` | `/api/auth/cambiar-contrasenia` | Cambiar la contraseña propia y revocar JWT anteriores |
 | `POST` | `/api/auth/logout` | Cerrar todas las sesiones de la cuenta autenticada |
+| `GET` | `/api/usuarios/me` | Consultar la cuenta propia y el perfil de turista del Cliente (requiere JWT, cualquier rol) |
+
+`GET /api/usuarios/me` devuelve `{ "usuario": { ... }, "turista": { ... } }`. La cuenta se obtiene del usuario autenticado, sin recibir un ID. Para roles de gestión, `turista` es `null`; también se devuelve `null` si un Cliente no tiene perfil asociado. No incluye contraseña. La regla de acceso de esta ruta precede a la restricción general de usuarios para Administrador/Dueño. Falta confirmar su acceso por HTTP.
 | `GET` | `/api/usuarios/vendedores` | Listar vendedores según el alcance del rol |
 | `GET` | `/api/usuarios/clientes` | Listar cuentas Cliente; Administrador/Dueño o Vendedor con sucursal |
 
@@ -375,7 +389,7 @@ En Linux/macOS, reemplazá `.\mvnw.cmd` por `./mvnw`.
 - `compile`: compila el código y genera los mappers.
 - `PaqueteReservaServiceTest`: contiene 12 pruebas unitarias de reservas; usa mocks y no necesita MySQL ni `JWT_SECRET`.
 - `TuristaServiceTest`: contiene trece pruebas de unicidad y coincidencias cruzadas de email, conservación de la relación al editar, rechazo de perfiles duplicados y creación únicamente para un Cliente existente; usa mocks y no necesita MySQL ni `JWT_SECRET`.
-- `RegistroClienteServiceTest`: contiene 37 casos de registro, perfiles obligatorios, coincidencias cruzadas de username/email, jerarquía de creación/edición/eliminación y conservación de contraseña/versión. Usa mocks; todavía falta verificar la reversión real de ambos guardados con MySQL.
+- `RegistroClienteServiceTest`: contiene 42 casos de perfil propio, registro, perfiles obligatorios, coincidencias cruzadas de username/email, jerarquía de creación/edición/eliminación y conservación de contraseña/versión. Usa mocks; todavía falta verificar la reversión real de ambos guardados con MySQL.
 - `AuthRegistroControllerTest`: contiene tres pruebas MockMvc standalone de respuesta 201 sin contraseña y validación del perfil anidado. No utiliza MySQL ni la cadena de filtros de seguridad.
 - `AuthServiceTest`: contiene 17 casos con `AuthenticationManager`, `DaoAuthenticationProvider` y BCrypt reales, repositorios simulados y emisión de JWT simulada. Comprueba acceso por email/username, rechazo de contraseña incorrecta, restricciones por rol, identificadores ambiguos y carga canónica del usuario para JWT.
 - `ValidadorIdentificadoresServiceTest`: contiene doce casos de valores disponibles, duplicados, coincidencias entre tablas y exclusión de la propia cuenta.

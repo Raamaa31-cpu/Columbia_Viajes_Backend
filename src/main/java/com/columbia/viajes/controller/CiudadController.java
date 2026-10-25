@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -25,8 +26,8 @@ public class CiudadController {
     private final CiudadService ciudadService;
     
     @GetMapping
-    public ResponseEntity<List<CiudadResponse>> listar(){
-        return ResponseEntity.ok(ciudadService.listar());
+    public ResponseEntity<List<CiudadResponse>> listar(@RequestParam(name = "nombre", required = false) String nombre){
+        return ResponseEntity.ok(ciudadService.listar(nombre));
     }
     
     @GetMapping("/{id}")

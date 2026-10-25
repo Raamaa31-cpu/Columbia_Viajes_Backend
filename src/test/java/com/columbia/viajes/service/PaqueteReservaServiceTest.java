@@ -6,6 +6,7 @@ import com.columbia.viajes.model.*;
 import com.columbia.viajes.repository.*;
 import com.columbia.viajes.security.service.UsuarioActualService;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,59 @@ class PaqueteReservaServiceTest {
     }
 
     @Test
+    void clienteListaReservasConElIdDeSuCuentaAutenticada() {
+        when(usuarioActual.obtener()).thenReturn(usuario(8, "Cliente", null));
+        Turista turista = new Turista();
+        turista.setId(8);
+        PaqueteReserva reserva = new PaqueteReserva();
+        reserva.setId(50);
+        reserva.setTurista(turista);
+        when(reservas.findByTurista_Id(8)).thenReturn(List.of(reserva));
+
+        var resultado = service.listar();
+
+        assertEquals(1, resultado.size());
+        assertEquals(50, resultado.getFirst().id());
+        assertEquals(8, resultado.getFirst().turistaId());
+        verify(reservas).findByTurista_Id(8);
+        verifyNoMoreInteractions(reservas);
+    }
+
+    @Test
+    void clienteSinReservasRecibeListaVacia() {
+        when(usuarioActual.obtener()).thenReturn(usuario(8, "Cliente", null));
+        when(reservas.findByTurista_Id(8)).thenReturn(List.of());
+
+        assertTrue(service.listar().isEmpty());
+
+        verify(reservas).findByTurista_Id(8);
+        verifyNoMoreInteractions(reservas);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Administrador", "Dueño"})
+    void gestionConservaElListadoGeneral(String rol) {
+        when(usuarioActual.obtener()).thenReturn(usuario(1, rol, null));
+        when(reservas.findAll()).thenReturn(List.of());
+
+        assertTrue(service.listar().isEmpty());
+
+        verify(reservas).findAll();
+        verifyNoMoreInteractions(reservas);
+    }
+
+    @Test
+    void vendedorConservaElListadoDeSuSucursal() {
+        when(usuarioActual.obtener()).thenReturn(usuario(1, "Vendedor", 10));
+        when(reservas.findByPaquete_Sucursal_Id(10)).thenReturn(List.of());
+
+        assertTrue(service.listar().isEmpty());
+
+        verify(reservas).findByPaquete_Sucursal_Id(10);
+        verifyNoMoreInteractions(reservas);
+    }
+
+    @Test
     void vendedorNoPuedeEditarReservaFueraDeSuSucursal() {
         when(usuarioActual.obtener()).thenReturn(usuario(1, "Vendedor", 10));
         when(reservas.findByIdAndPaquete_Sucursal_Id(50, 10)).thenReturn(Optional.empty());
@@ -49,6 +103,68 @@ class PaqueteReservaServiceTest {
         verify(reservas, never()).findById(any());
         verify(reservas, never()).save(any());
         verifyNoInteractions(paquetes, turistas, usuarios);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void clienteSoloObtieneLaReservaCuandoCoincideSuTurista(boolean accesible) {
+        when(usuarioActual.obtener()).thenReturn(usuario(8, "Cliente", null));
+        PaqueteReserva reserva = new PaqueteReserva();
+        reserva.setId(50);
+        Turista turista = new Turista();
+        turista.setId(8);
+        reserva.setTurista(turista);
+        when(reservas.findByIdAndTurista_Id(50, 8))
+                .thenReturn(accesible ? Optional.of(reserva) : Optional.empty());
+
+        var resultado = service.obtener(50);
+
+        assertEquals(accesible, resultado.isPresent());
+        if (accesible) {
+            assertEquals(50, resultado.orElseThrow().id());
+            assertEquals(8, resultado.orElseThrow().turistaId());
+        }
+        verify(reservas).findByIdAndTurista_Id(50, 8);
+        verifyNoMoreInteractions(reservas);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void vendedorSoloObtieneLaReservaDeSuSucursal(boolean accesible) {
+        when(usuarioActual.obtener()).thenReturn(usuario(1, "Vendedor", 10));
+        PaqueteReserva reserva = new PaqueteReserva();
+        reserva.setId(50);
+        when(reservas.findByIdAndPaquete_Sucursal_Id(50, 10))
+                .thenReturn(accesible ? Optional.of(reserva) : Optional.empty());
+
+        assertEquals(accesible, service.obtener(50).isPresent());
+
+        verify(reservas).findByIdAndPaquete_Sucursal_Id(50, 10);
+        verifyNoMoreInteractions(reservas);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Administrador", "Dueño"})
+    void gestionObtieneReservasSinFiltroDeTuristaNiSucursal(String rol) {
+        when(usuarioActual.obtener()).thenReturn(usuario(1, rol, null));
+        PaqueteReserva reserva = new PaqueteReserva();
+        reserva.setId(50);
+        when(reservas.findById(50)).thenReturn(Optional.of(reserva));
+
+        assertEquals(50, service.obtener(50).orElseThrow().id());
+
+        verify(reservas).findById(50);
+        verifyNoMoreInteractions(reservas);
+    }
+
+    @Test
+    void clienteSigueSinPoderEditarNiEliminarReservas() {
+        when(usuarioActual.obtener()).thenReturn(usuario(8, "Cliente", null));
+
+        assertThrows(AccessDeniedException.class, () -> service.actualizar(50, request(null)));
+        assertThrows(AccessDeniedException.class, () -> service.eliminar(50));
+
+        verifyNoInteractions(reservas, paquetes, turistas, usuarios);
     }
 
     @Test

@@ -2,9 +2,8 @@ package com.columbia.viajes.repository;
 
 import com.columbia.viajes.model.Ciudad;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface CiudadRepository extends JpaRepository<Ciudad, Integer> {
+public interface CiudadRepository extends RepositorioConNombre<Ciudad> {
 
     boolean existsByNombre(String nombre);
     

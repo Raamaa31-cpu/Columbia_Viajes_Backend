@@ -19,5 +19,9 @@ public interface PaqueteReservaRepository extends JpaRepository<PaqueteReserva, 
     
     List<PaqueteReserva> findByPaquete_Sucursal_Id(Integer idSucursal);
     
+    List<PaqueteReserva> findByTurista_Id(Integer idTurista);
+
     Optional<PaqueteReserva> findByIdAndPaquete_Sucursal_Id(Integer id, Integer idSucursal);
+
+    Optional<PaqueteReserva> findByIdAndTurista_Id(Integer id, Integer idTurista);
 }

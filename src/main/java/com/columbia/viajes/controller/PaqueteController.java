@@ -18,8 +18,8 @@ public class PaqueteController {
     private final PaqueteService paqueteService;
 
     @GetMapping
-    public ResponseEntity<List<PaqueteResponse>> listar() {
-        return ResponseEntity.ok(paqueteService.listar());
+    public ResponseEntity<List<PaqueteResponse>> listar(@RequestParam(name = "nombre", required = false) String nombre) {
+        return ResponseEntity.ok(paqueteService.listar(nombre));
     }
 
     @GetMapping("/{id}")

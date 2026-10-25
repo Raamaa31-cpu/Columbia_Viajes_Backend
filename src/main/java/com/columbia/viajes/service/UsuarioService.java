@@ -5,6 +5,8 @@ import com.columbia.viajes.dto.request.RegistroClienteRequest;
 import com.columbia.viajes.dto.request.UsuarioActualizacionRequest;
 import com.columbia.viajes.dto.request.UsuarioRequest;
 import com.columbia.viajes.dto.response.UsuarioResponse;
+import com.columbia.viajes.dto.response.MiPerfilResponse;
+import com.columbia.viajes.dto.response.TuristaResponse;
 import com.columbia.viajes.mapper.UsuarioMapper;
 import com.columbia.viajes.model.Rol;
 import com.columbia.viajes.model.Sucursal;
@@ -13,7 +15,7 @@ import com.columbia.viajes.repository.RolRepository;
 import com.columbia.viajes.repository.SucursalRepository;
 import com.columbia.viajes.repository.UsuarioRepository;
 import com.columbia.viajes.security.service.UsuarioActualService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -86,6 +88,16 @@ public class UsuarioService {
     public Optional<UsuarioResponse> obtener(Integer id) {
         return usuarioRepository.findById(id)
                 .map(usuarioMapper::toUsuarioResponse);
+    }
+    
+    @Transactional(readOnly = true)
+    public MiPerfilResponse obtenerMiPerfil() {
+        Usuario usuario = usuarioActualService.obtener();
+        TuristaResponse turista = null;
+        if ("Cliente".equals(usuario.getRol().getNombre())) {
+            turista = turistaService.obtener(usuario.getId()).orElse(null);
+        }
+        return new MiPerfilResponse(usuarioMapper.toUsuarioResponse(usuario), turista);
     }
 
     @Transactional

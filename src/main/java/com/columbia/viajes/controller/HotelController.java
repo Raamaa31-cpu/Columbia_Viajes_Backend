@@ -18,8 +18,8 @@ public class HotelController {
     private final HotelService hotelService;
 
     @GetMapping
-    public ResponseEntity<List<HotelResponse>> listar() {
-        return ResponseEntity.ok(hotelService.listar());
+    public ResponseEntity<List<HotelResponse>> listar(@RequestParam(name = "nombre", required = false) String nombre) {
+        return ResponseEntity.ok(hotelService.listar(nombre));
     }
 
     @GetMapping("/{id}")

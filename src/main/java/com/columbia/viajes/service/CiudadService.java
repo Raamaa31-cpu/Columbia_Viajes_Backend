@@ -18,8 +18,8 @@ public class CiudadService {
     private final CiudadRepository ciudadRepository;
     private final CiudadMapper ciudadMapper;
     
-    public List<CiudadResponse> listar(){
-        return ciudadRepository.findAll()
+    public List<CiudadResponse> listar(String nombre){
+        return ciudadRepository.listarPorNombre(nombre)
                 .stream()
                 .map(ciudadMapper::toCiudadResponse)
                 .toList();

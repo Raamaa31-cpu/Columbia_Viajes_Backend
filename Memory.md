@@ -165,7 +165,32 @@
 - Son comprobaciones de aplicación; los UNIQUE actuales de MySQL siguen siendo individuales por tabla, sin una restricción global entre ambas. No se implementó serialización de registros concurrentes. Se conserva la defensa que rechaza identificadores ambiguos al iniciar sesión. No afirmar garantía atómica global frente a concurrencia solamente por estas validaciones.
 - Próximas pruebas manuales: rechazar al registrar un username igual a email ajeno, un email igual a username ajeno y repetir esas comprobaciones al editar. Los duplicados conocidos ahora se rechazan antes de guardar Usuario; probar ese caso no demuestra un rollback posterior al INSERT. La verificación de rollback real con un fallo posterior a guardar Usuario sigue pendiente.
 
+## Consulta de Reservas del Cliente — 25/10/2026
+- Se reutilizan GET /api/paquetes-reservas y GET /api/paquetes-reservas/{id}. Cliente consulta únicamente sus reservas, Vendedor las de la sucursal del paquete y Administrador/Dueño todas.
+- listar() incorpora Cliente con findByTurista_Id. obtener() incorpora Cliente con findByIdAndTurista_Id; ambos usan el ID de UsuarioActualService.obtener(), compartido con Turista, sin recibir la identidad del solicitante desde el frontend.
+- buscarReservaAccesible conserva únicamente los roles de gestión porque se comparte con actualizar y eliminar. Cliente sigue sin poder editar ni eliminar, incluso al invocar directamente el service.
+- SecurityConfig permite a los cuatro roles solo los GET de listado y detalle antes de la restricción general de reservas. El controlador existente convierte Optional.empty() en 404 para reserva inexistente o fuera del alcance del solicitante.
+- PaqueteReservaServiceTest aprobó 24 casos sin MySQL: listado por rol, consulta propia o fuera de alcance, consulta por sucursal, acceso de gestión y rechazo de edición/eliminación para Cliente. Compilación aprobada. Las pruebas usan repositorios simulados; falta confirmar por HTTP real el aislamiento entre Clientes, los permisos y los estados 200/404/401/403. No se modificó schema.sql ni MySQL.
+
+## Filtro por Nombre del Catálogo — 25/10/2026
+- GET /api/paquetes, /api/ciudades y /api/hoteles aceptan nombre como query parameter opcional, por ejemplo /api/paquetes?nombre=aventura. Se busca por el nombre propio de cada entidad, con coincidencia parcial y sin distinguir mayúsculas/minúsculas; no se implementaron filtros de paquetes por ciudad/hotel en este paso.
+- RepositorioConNombre<T>, marcado @NoRepositoryBean, comparte findByNombreContainingIgnoreCase y el método default listarPorNombre: sin texto devuelve findAll y con texto quita espacios de los extremos con strip antes de consultar. PaqueteRepository, CiudadRepository y HotelRepository lo extienden y conservan sus operaciones existentes. La consulta filtra en la base de datos, sin cargar todo para filtrar en Java.
+- Los controladores reciben @RequestParam(name = "nombre", required = false); los services ahora usan listar(String nombre) y conservan el mapping a sus DTOs. Sin parámetro, vacío o solo espacios se conserva el listado completo; sin coincidencias devuelve 200 con []. Los GET conservan acceso público por las reglas existentes de SecurityConfig.
+- FiltroNombreControllerTest aprobó nueve casos parametrizados para los tres módulos: transmisión del filtro, eliminación de espacios, parámetro ausente/vacío/espacios y respuesta vacía sin coincidencias. Usa controladores, services, mappers y método default reales con consultas de repositorio simuladas; no certifica resultados de búsqueda contra datos reales de MySQL ni la cadena de seguridad.
+- mvnw.cmd -Dtest=FiltroNombreControllerTest,PaqueteReservaServiceTest,ViajesApplicationTests test terminó con BUILD SUCCESS: 34 pruebas aprobadas (9 de filtros, 24 de reservas y 1 de contexto). El contexto inició con MySQL y ddl-auto=validate, reconociendo los repositorios y sus consultas nuevas. No se modificaron tablas ni datos ni schema.sql. README actualizado con ejemplos de filtro y permisos de reservas.
+
 ## Tareas Pendientes (Backlog)
+- [x] Agregar filtro opcional por nombre a los listados de paquetes, ciudades y hoteles con lógica compartida.
+- [ ] Probar filtros por HTTP real: coincidencias parciales, mayúsculas/minúsculas, sin coincidencias y listado sin filtro en los tres módulos.
+- [x] Permitir al Cliente listar y consultar por ID sus propias reservas, conservando los permisos de gestión.
+- [ ] Confirmar por HTTP la consulta de reservas propias y rechazo de ajenas con Cliente, los permisos de otros roles y el bloqueo de escritura para Cliente.
+- [x] Implementar GET /api/usuarios/me con cuenta autenticada y perfil de Turista para Cliente; pruebas unitarias aprobadas.
+- [ ] Confirmar /api/usuarios/me por HTTP: Cliente con turista, gestión sin turista y sin token 401.
+
+### Mi perfil — 25/10/2026
+- MiPerfilResponse agrupa UsuarioResponse y TuristaResponse. UsuarioService.obtenerMiPerfil usa UsuarioActualService.obtener y, únicamente para Cliente, reutiliza TuristaService.obtener con el ID compartido. Devuelve turista null para gestión o si falta el perfil. No devuelve contraseña ni acepta ID del solicitante.
+- UsuarioController devuelve ResponseEntity<MiPerfilResponse>. SecurityConfig permite GET exacto /api/usuarios/me con authenticated() antes de las reglas generales de usuarios.
+- RegistroClienteServiceTest aprobó 42 casos (cinco nuevos de perfil: Cliente, tres roles de gestión y Cliente sin turista). Compilación aprobada. Falta prueba HTTP de la regla de seguridad; no se modificaron tablas ni schema.sql.
 - [x] Implementar el módulo completo de Usuario (Controller, Service, Mapper, DTOs).
 - [x] Implementar el módulo completo de Turista (Controller, Service, Mapper, DTOs).
 - [x] Implementar el módulo completo de Paquetes (Controller, Service, Mapper, DTOs).

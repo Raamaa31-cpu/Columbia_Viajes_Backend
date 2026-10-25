@@ -48,6 +48,8 @@ public class PaqueteReservaService {
             paquetesReservas = paqueteReservaRepository.findAll();
         } else if(rol.equals("Vendedor") && usuarioActual.getSucursal() != null){
             paquetesReservas = paqueteReservaRepository.findByPaquete_Sucursal_Id(usuarioActual.getSucursal().getId());
+        } else if(rol.equals("Cliente")){
+            paquetesReservas = paqueteReservaRepository.findByTurista_Id(usuarioActual.getId());
         } else {
             throw new AccessDeniedException("Acceso denegado");
         }
@@ -60,8 +62,15 @@ public class PaqueteReservaService {
 
     public Optional<PaqueteReservaResponse> obtener(Integer id) {
         Usuario usuarioActual = usuarioActualService.obtener();
-        return buscarReservaAccesible(id, usuarioActual)
-                .map(paqueteReservaMapper::toPaqueteReservaResponse);
+        Optional<PaqueteReserva> reserva;
+
+        if (usuarioActual.getRol().getNombre().equals("Cliente")) {
+            reserva = paqueteReservaRepository.findByIdAndTurista_Id(id, usuarioActual.getId());
+        } else {
+            reserva = buscarReservaAccesible(id, usuarioActual);
+        }
+
+        return reserva.map(paqueteReservaMapper::toPaqueteReservaResponse);
     }
 
     @Transactional

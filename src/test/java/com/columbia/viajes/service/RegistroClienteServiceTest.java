@@ -4,6 +4,7 @@ import com.columbia.viajes.dto.request.RegistroClienteRequest;
 import com.columbia.viajes.dto.request.TuristaRequest;
 import com.columbia.viajes.dto.request.UsuarioActualizacionRequest;
 import com.columbia.viajes.dto.request.UsuarioRequest;
+import com.columbia.viajes.dto.response.TuristaResponse;
 import com.columbia.viajes.mapper.UsuarioMapper;
 import com.columbia.viajes.model.Rol;
 import com.columbia.viajes.model.Turista;
@@ -60,6 +61,50 @@ class RegistroClienteServiceTest {
             }
             return usuario;
         });
+    }
+
+    @Test
+    void miPerfilBuscaUnicamenteElTuristaDelClienteAutenticado() {
+        Usuario cliente = actor("Cliente");
+        cliente.setId(42);
+        when(usuarioActual.obtener()).thenReturn(cliente);
+        TuristaResponse perfil = new TuristaResponse(42, "Ana", "Perez",
+                "Calle 123", "ana@example.com", "1122334455", 42);
+        when(turistas.obtener(42)).thenReturn(Optional.of(perfil));
+
+        var response = service.obtenerMiPerfil();
+
+        assertEquals(42, response.usuario().id());
+        assertEquals("Cliente", response.usuario().rolNombre());
+        assertSame(perfil, response.turista());
+        verify(turistas).obtener(42);
+        verifyNoMoreInteractions(turistas);
+        verifyNoInteractions(usuarios);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Vendedor", "Administrador", "Dueño"})
+    void miPerfilDeGestionNoConsultaNiDevuelveTurista(String nombreRol) {
+        when(usuarioActual.obtener()).thenReturn(actor(nombreRol));
+
+        var response = service.obtenerMiPerfil();
+
+        assertEquals(nombreRol, response.usuario().rolNombre());
+        assertNull(response.turista());
+        verifyNoInteractions(turistas, usuarios);
+    }
+
+    @Test
+    void miPerfilDeClienteSinTuristaDevuelveCuentaSinPerfil() {
+        Usuario cliente = actor("Cliente");
+        cliente.setId(42);
+        when(usuarioActual.obtener()).thenReturn(cliente);
+        when(turistas.obtener(42)).thenReturn(Optional.empty());
+
+        var response = service.obtenerMiPerfil();
+
+        assertEquals(42, response.usuario().id());
+        assertNull(response.turista());
     }
 
     @Test

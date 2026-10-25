@@ -42,6 +42,8 @@ public class SecurityConfig {
                         })
                 )
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/api/usuarios/me")
+                        .authenticated()
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/auth/login",
@@ -76,6 +78,12 @@ public class SecurityConfig {
                                 "/api/turistas/**"
                         ).hasAnyAuthority("Vendedor", "Administrador", "Dueño")
                         
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/paquetes-reservas",
+                                "/api/paquetes-reservas/{id}"
+                        ).hasAnyAuthority("Cliente", "Vendedor", "Administrador", "Dueño")
+
                         .requestMatchers(
                                 "/api/paquetes-reservas",
                                 "/api/paquetes-reservas/**"
