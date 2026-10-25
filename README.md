@@ -267,15 +267,31 @@ El Vendedor puede gestionar reservas de compañeros de su misma sucursal. Al cre
 
 Todas las rutas usan el prefijo `/api`.
 
-Los listados de paquetes, ciudades y hoteles aceptan el parámetro opcional `nombre`:
+Los listados del catálogo permiten combinar estos filtros opcionales:
+
+| Recurso | Parámetros |
+| --- | --- |
+| Paquetes | `nombre`, `idCiudad`, `idHotel` |
+| Hoteles | `nombre`, `idCiudad` |
+| Ciudades | `nombre` |
 
 ```http
 GET /api/paquetes?nombre=aventura
 GET /api/ciudades?nombre=rio
 GET /api/hoteles?nombre=plaza
+GET /api/hoteles?nombre=lago&idCiudad=4
+GET /api/paquetes?nombre=bariloche&idCiudad=4&idHotel=1
 ```
 
-La búsqueda encuentra nombres que contienen el texto, sin distinguir mayúsculas y minúsculas. Se quitan los espacios de los extremos. Si se omite `nombre`, se envía vacío o solo con espacios, devuelve el listado completo. Sin coincidencias devuelve `200` con `[]`. Estos GET conservan su acceso público.
+`nombre` busca sobre el nombre propio del recurso con coincidencia parcial, sin distinguir mayúsculas y minúsculas y quitando espacios de los extremos. Si se omite, se envía vacío o solo con espacios, no restringe por nombre; los filtros de ciudad y hotel enviados siguen aplicándose.
+
+Los filtros se combinan con **AND**: cada resultado debe cumplir todas las condiciones enviadas. En paquetes, `idCiudad` corresponde a la ciudad del hotel (`paquete.hotel.ciudad.id`); `idHotel` identifica ese hotel. En hoteles, `idCiudad` corresponde a su ciudad. Ambos IDs son `Integer` y admiten `null` cuando se omiten.
+
+Sin ningún filtro se devuelve el listado completo. Si no hay coincidencias, incluso por una combinación incompatible de ciudad y hotel, devuelve `200` con `[]`. Estos GET conservan su acceso público.
+
+Las consultas combinadas de hoteles y paquetes están definidas con JPQL en sus repositorios. Los controladores reciben los parámetros y los services llaman a `buscar(...)`, conservando la conversión a los DTOs de respuesta. Ciudades conserva la búsqueda compartida de `RepositorioConNombre`.
+
+Pruebas manuales confirmadas en Postman con los datos locales de ejemplo: filtros de hoteles y listado sin filtros; para paquetes, `nombre=bariloche&idCiudad=4&idHotel=1` devuelve el paquete de prueba y la misma búsqueda con `idCiudad=1` devuelve `[]`. Estos IDs corresponden a los datos locales creados para practicar y no se garantizan al importar `schema.sql`.
 
 | Recurso | Ruta base | Operaciones disponibles |
 | --- | --- | --- |
@@ -387,7 +403,8 @@ Comandos para PowerShell:
 En Linux/macOS, reemplazá `.\mvnw.cmd` por `./mvnw`.
 
 - `compile`: compila el código y genera los mappers.
-- `PaqueteReservaServiceTest`: contiene 12 pruebas unitarias de reservas; usa mocks y no necesita MySQL ni `JWT_SECRET`.
+- `PaqueteReservaServiceTest`: contiene 24 casos de reservas, incluidos el alcance por rol/sucursal/propietario y el rechazo de edición/eliminación para Cliente; usa mocks y no necesita MySQL ni `JWT_SECRET`.
+- `FiltroNombreControllerTest`: contiene nueve casos parametrizados del filtro por nombre original. Las simulaciones de paquetes y hoteles deben adaptarse a `buscar(...)` y ampliarse para probar filtros combinados; la aprobación histórica de esos nueve casos no certifica la implementación actual.
 - `TuristaServiceTest`: contiene trece pruebas de unicidad y coincidencias cruzadas de email, conservación de la relación al editar, rechazo de perfiles duplicados y creación únicamente para un Cliente existente; usa mocks y no necesita MySQL ni `JWT_SECRET`.
 - `RegistroClienteServiceTest`: contiene 42 casos de perfil propio, registro, perfiles obligatorios, coincidencias cruzadas de username/email, jerarquía de creación/edición/eliminación y conservación de contraseña/versión. Usa mocks; todavía falta verificar la reversión real de ambos guardados con MySQL.
 - `AuthRegistroControllerTest`: contiene tres pruebas MockMvc standalone de respuesta 201 sin contraseña y validación del perfil anidado. No utiliza MySQL ni la cadena de filtros de seguridad.
@@ -406,6 +423,7 @@ java -jar target/viajes-0.0.1-SNAPSHOT.jar
 
 ## 🚧 Estado y pendientes
 
+- Adaptar las pruebas automáticas de filtros de paquetes y hoteles a `buscar(...)`, cubriendo filtros individuales, combinados, ausentes y sin coincidencias. Las consultas combinadas ya se verificaron manualmente en los ejemplos indicados.
 - Completar pruebas de logout con otros roles y otros tokens de la cuenta.
 - Definir renovación de JWT y permisos adicionales del Cliente.
 - Revisar CORS para integrar el frontend.

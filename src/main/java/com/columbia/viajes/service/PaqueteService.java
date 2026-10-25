@@ -27,8 +27,10 @@ public class PaqueteService {
     private final HotelRepository hotelRepository;
     private final PaqueteMapper paqueteMapper;
 
-    public List<PaqueteResponse> listar(String nombre) {
-        return paqueteRepository.listarPorNombre(nombre)
+    public List<PaqueteResponse> listar(String nombre, Integer idCiudad, Integer idHotel) {
+        nombre = nombre != null ? nombre.strip() : nombre;
+        
+        return paqueteRepository.buscar(nombre, idCiudad, idHotel)
                 .stream()
                 .map(paqueteMapper::toPaqueteResponse)
                 .toList();
