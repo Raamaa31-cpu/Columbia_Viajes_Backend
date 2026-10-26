@@ -2,6 +2,7 @@ package com.columbia.viajes.service;
 
 import com.columbia.viajes.dto.request.PaqueteReservaRequest;
 import com.columbia.viajes.dto.response.PaqueteReservaResponse;
+import com.columbia.viajes.dto.response.RankingVendedorResponse;
 import com.columbia.viajes.mapper.PaqueteReservaMapper;
 import com.columbia.viajes.model.Paquete;
 import com.columbia.viajes.model.ClaseVuelo;
@@ -14,7 +15,6 @@ import com.columbia.viajes.repository.PaqueteReservaRepository;
 import com.columbia.viajes.repository.TuristaRepository;
 import com.columbia.viajes.repository.UsuarioRepository;
 import com.columbia.viajes.security.service.UsuarioActualService;
-import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -37,6 +38,15 @@ public class PaqueteReservaService {
     private final PaqueteReservaMapper paqueteReservaMapper;
 
     private final UsuarioActualService usuarioActualService;
+
+    @Transactional(readOnly = true)
+    public List<RankingVendedorResponse> rankingVendedores() {
+        Usuario usuarioActual = usuarioActualService.obtener();
+        if (!"Dueño".equals(usuarioActual.getRol().getNombre())) {
+            throw new AccessDeniedException("Solo el Dueño puede consultar el ranking de vendedores.");
+        }
+        return paqueteReservaRepository.rankingVendedores();
+    }
     
     public List<PaqueteReservaResponse> listar() {
         

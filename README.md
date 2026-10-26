@@ -256,10 +256,11 @@ Cada usuario tiene un único rol: `Administrador`, `Dueño`, `Vendedor` o `Clien
 | Consultar roles | No | No | No | Sí |
 | Listar y consultar reservas por ID | No | Propias | De su sucursal | Todas |
 | Crear, editar y eliminar reservas | No | No | De su sucursal | De todas las sucursales |
+| Consultar ranking de vendedores por monto vendido | No | No | No | Solo Dueño |
 | Cambiar su propia contraseña | No | Sí | Sí | Sí |
 | Cerrar todas las sesiones de su cuenta | No | Sí | Sí | Sí |
 
-Dueño puede crear, editar y eliminar usuarios de cualquier rol. Administrador solo puede gestionar cuentas Cliente/Vendedor y asignar esos roles; no puede editar ni eliminar una cuenta Administrador/Dueño. Ambos conservan acceso a la gestión del catálogo. El ranking de vendedores por ventas para el Dueño está pendiente.
+Dueño puede crear, editar y eliminar usuarios de cualquier rol. Administrador solo puede gestionar cuentas Cliente/Vendedor y asignar esos roles; no puede editar ni eliminar una cuenta Administrador/Dueño. Ambos conservan acceso a la gestión del catálogo. La consulta del ranking de vendedores está reservada exclusivamente al Dueño.
 
 La edición general de usuarios no permite convertir entre Cliente y roles de gestión: el perfil se crea con la cuenta y se conserva. Los cambios de rol dentro de las cuentas de gestión respetan la jerarquía del actor.
 
@@ -326,10 +327,11 @@ Rutas adicionales:
 | `POST` | `/api/auth/cambiar-contrasenia` | Cambiar la contraseña propia y revocar JWT anteriores |
 | `POST` | `/api/auth/logout` | Cerrar todas las sesiones de la cuenta autenticada |
 | `GET` | `/api/usuarios/me` | Consultar la cuenta propia y el perfil de turista del Cliente (requiere JWT, cualquier rol) |
-
-`GET /api/usuarios/me` devuelve `{ "usuario": { ... }, "turista": { ... } }`. La cuenta se obtiene del usuario autenticado, sin recibir un ID. Para roles de gestión, `turista` es `null`; también se devuelve `null` si un Cliente no tiene perfil asociado. No incluye contraseña. La regla de acceso de esta ruta precede a la restricción general de usuarios para Administrador/Dueño. Falta confirmar su acceso por HTTP.
 | `GET` | `/api/usuarios/vendedores` | Listar vendedores según el alcance del rol |
 | `GET` | `/api/usuarios/clientes` | Listar cuentas Cliente; Administrador/Dueño o Vendedor con sucursal |
+| `GET` | `/api/paquetes-reservas/ranking-vendedores` | Ranking por monto de reservas; solo Dueño |
+
+`GET /api/usuarios/me` devuelve `{ "usuario": { ... }, "turista": { ... } }`. La cuenta se obtiene del usuario autenticado, sin recibir un ID. Para roles de gestión, `turista` es `null`; también se devuelve `null` si un Cliente no tiene perfil asociado. No incluye contraseña. La regla de acceso de esta ruta precede a la restricción general de usuarios para Administrador/Dueño. Falta confirmar su acceso por HTTP.
 
 Los GET de catálogo son públicos. El resto de los permisos se detalla en la tabla anterior. Para los campos de cada solicitud y respuesta, consultá [dto/request](src/main/java/com/columbia/viajes/dto/request) y [dto/response](src/main/java/com/columbia/viajes/dto/response).
 
@@ -400,6 +402,32 @@ El flujo principal se verificó contra servidor y MySQL reales con autenticació
 
 La verificación de lectura incluyó 71 casos aprobados entre archivos, service y controller. Además, con la aplicación iniciada temporalmente en 8081 contra MySQL, se comprobó sin token que detalle/listado devuelven la URL, que la descarga devuelve `200 image/png` y los mismos 513712 bytes del archivo local del paquete 1, que If-None-Match devuelve `304` y que un paquete inexistente devuelve `404`. No se modificaron datos de MySQL en esa comprobación; allí se conserva el nombre del archivo.
 
+## 🏆 Ranking de vendedores
+
+```http
+GET /api/paquetes-reservas/ranking-vendedores
+Authorization: Bearer <token-del-Dueno>
+```
+
+Devuelve `200` con una lista de `RankingVendedorResponse`:
+
+```json
+[
+  {
+    "vendedorId": 4,
+    "nombre": "vendedor_a1",
+    "totalVendido": 1020000.00,
+    "sucursalId": 2
+  }
+]
+```
+
+El total suma `precioReserva` de todas las reservas registradas de cada vendedor. Se ordena por monto descendente y, ante empate, ID de vendedor ascendente. Incluye vendedores con reservas; sin registros devuelve `[]`. No filtra por fechas ni mide cantidad de reservas. `sucursalId` corresponde a la sucursal del vendedor.
+
+Solo Dueño puede consultarlo: Administrador, Vendedor y Cliente reciben `403`; sin autenticación o con JWT inválido, `401`. La regla exacta de GET precede a los matchers generales de reservas y el service vuelve a validar el rol dentro de una transacción de lectura. La consulta JPQL construye directamente el DTO con `SELECT new`.
+
+Verificación: siete pruebas del controller con la cadena de seguridad real y JWT/service simulados, más seis casos del service. Por HTTP real se comprobaron Dueño `200`, Vendedor/Cliente `403`, ausencia de token y token inválido `401`; dos reservas temporales permitieron verificar empate estable, agrupación y suma de varias reservas. Se retiraron al finalizar, conservando la reserva original y el ranking de ejemplo. El rechazo de Administrador se verificó automáticamente con el rol simulado; no se cambió su contraseña para esta prueba.
+
 ## 🧳 Reservas y cálculo del precio
 
 Un paquete pertenece a una sucursal e incluye hotel, vuelo de ida y vuelo de vuelta. Un turista está vinculado a un usuario y puede tener varias reservas. Cada reserva relaciona un paquete, un turista y un vendedor.
@@ -463,6 +491,7 @@ Comandos para PowerShell:
 .\mvnw.cmd "-Dtest=AuthRegistroControllerTest" test
 .\mvnw.cmd "-Dtest=AuthServiceTest" test
 .\mvnw.cmd "-Dtest=ValidadorIdentificadoresServiceTest" test
+.\mvnw.cmd "-Dtest=FiltroNombreControllerTest" test
 .\mvnw.cmd test
 .\mvnw.cmd package
 ```
@@ -470,8 +499,9 @@ Comandos para PowerShell:
 En Linux/macOS, reemplazá `.\mvnw.cmd` por `./mvnw`.
 
 - `compile`: compila el código y genera los mappers.
-- `PaqueteReservaServiceTest`: contiene 24 casos de reservas, incluidos el alcance por rol/sucursal/propietario y el rechazo de edición/eliminación para Cliente; usa mocks y no necesita MySQL ni `JWT_SECRET`.
-- `FiltroNombreControllerTest`: contiene nueve casos parametrizados del filtro por nombre original. Las simulaciones de paquetes y hoteles deben adaptarse a `buscar(...)` y ampliarse para probar filtros combinados; la aprobación histórica de esos nueve casos no certifica la implementación actual.
+- `PaqueteReservaServiceTest`: contiene 30 casos de reservas y ranking, incluidos el alcance por rol/sucursal/propietario, el rechazo de edición/eliminación para Cliente y el permiso exclusivo del Dueño para el ranking; usa mocks y no necesita MySQL ni `JWT_SECRET`.
+- `RankingVendedoresControllerTest`: contiene siete casos MVC con SecurityConfig y filtros reales, simulando JWT, usuarios y service; verifica respuesta/orden, lista vacía, rechazo de Administrador/Vendedor/Cliente, ausencia de token y token inválido. La autenticación simulada se comparte con las pruebas de imágenes mediante AutenticacionJwtPrueba.
+- `FiltroNombreControllerTest`: contiene 26 casos con controladores, services y mappers reales, y repositorios simulados. Ciudades conserva `findAll`/`findByNombreContainingIgnoreCase`; paquetes y hoteles usan `buscar(...)`. Verifica parámetros individuales y combinados, orden de ciudad/hotel, espacios en el nombre, filtros ausentes/vacíos, respuestas vacías e IDs no numéricos rechazados con `400` antes de consultar. Estos casos comprueban el recorrido HTTP simulado y la transmisión de filtros; no ejecutan las consultas SQL contra datos reales.
 - `TuristaServiceTest`: contiene trece pruebas de unicidad y coincidencias cruzadas de email, conservación de la relación al editar, rechazo de perfiles duplicados y creación únicamente para un Cliente existente; usa mocks y no necesita MySQL ni `JWT_SECRET`.
 - `RegistroClienteServiceTest`: contiene 42 casos de perfil propio, registro, perfiles obligatorios, coincidencias cruzadas de username/email, jerarquía de creación/edición/eliminación y conservación de contraseña/versión. Usa mocks; todavía falta verificar la reversión real de ambos guardados con MySQL.
 - `AuthRegistroControllerTest`: contiene tres pruebas MockMvc standalone de respuesta 201 sin contraseña y validación del perfil anidado. No utiliza MySQL ni la cadena de filtros de seguridad.
@@ -488,13 +518,13 @@ java -jar target/viajes-0.0.1-SNAPSHOT.jar
 
 **Verificaciones registradas:** compilación exitosa; pruebas unitarias de reservas aprobadas; pruebas manuales en Postman de login, autorización por sucursal, cambio de contraseña y revocación de JWT anteriores. También se confirmó el logout global: acceso con token válido → 200, logout → 204 y acceso con el token anterior → 401; sin token → 401; nuevo login con la misma contraseña y acceso con el nuevo JWT → 200. La cobertura HTTP de todas las operaciones todavía está pendiente.
 
+**Suite completa verificada el 25/10/2026:** `.\mvnw.cmd test` terminó con `BUILD SUCCESS`: 222 pruebas en 12 clases, sin fallos, errores ni casos omitidos. Incluye búsquedas, imágenes, ranking y el inicio del contexto contra MySQL con `ddl-auto=validate`. Esa ejecución automática no modificó datos de la base ni imágenes del proyecto; la prueba HTTP posterior del ranking creó y eliminó únicamente dos reservas temporales.
+
 ## 🚧 Estado y pendientes
 
-- Adaptar las pruebas automáticas de filtros de paquetes y hoteles a `buscar(...)`, cubriendo filtros individuales, combinados, ausentes y sin coincidencias. Las consultas combinadas ya se verificaron manualmente en los ejemplos indicados.
 - Completar pruebas de logout con otros roles y otros tokens de la cuenta.
 - Definir renovación de JWT y permisos adicionales del Cliente.
 - Revisar CORS para integrar el frontend.
-- Implementar el endpoint del ranking de vendedores para el Dueño.
 - Completar las pruebas del registro: se confirmó manualmente el alta y login por nombre; faltan el ID compartido y la reversión por errores con MySQL.
 - Probar en Postman el login unificado del Cliente con username/email y sus rechazos; están aprobadas las pruebas automatizadas y la carga del contexto de Spring con MySQL.
 - Probar por HTTP las coincidencias cruzadas de username/email al crear y editar. Se validan antes del guardado; una protección global atómica entre tablas ante solicitudes concurrentes requeriría una estrategia adicional.

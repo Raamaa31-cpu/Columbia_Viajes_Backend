@@ -1,6 +1,7 @@
 package com.columbia.viajes.repository;
 
 import com.columbia.viajes.model.PaqueteReserva;
+import com.columbia.viajes.dto.response.RankingVendedorResponse;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,13 +10,15 @@ import org.springframework.data.jpa.repository.Query;
 public interface PaqueteReservaRepository extends JpaRepository<PaqueteReserva, Integer> {    
     
     @Query("""
-       SELECT v.id, v.nombre, SUM(r.precioReserva), v.sucursal.id
+       SELECT new com.columbia.viajes.dto.response.RankingVendedorResponse(
+           v.id, v.nombre, SUM(r.precioReserva), v.sucursal.id
+       )
        FROM PaqueteReserva r
        JOIN r.vendedor v
        GROUP BY v.id, v.nombre, v.sucursal.id
-       ORDER BY SUM(r.precioReserva) DESC
+       ORDER BY SUM(r.precioReserva) DESC, v.id ASC
        """)
-    List<Object[]> rankingVendedores();
+    List<RankingVendedorResponse> rankingVendedores();
     
     List<PaqueteReserva> findByPaquete_Sucursal_Id(Integer idSucursal);
     

@@ -42,6 +42,8 @@ public class SecurityConfig {
                         })
                 )
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/api/paquetes-reservas/ranking-vendedores")
+                        .hasAuthority("Dueño")
                         .requestMatchers(HttpMethod.GET, "/api/usuarios/me")
                         .authenticated()
                         .requestMatchers(

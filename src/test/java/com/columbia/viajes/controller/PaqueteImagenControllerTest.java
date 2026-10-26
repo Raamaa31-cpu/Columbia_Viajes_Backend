@@ -2,13 +2,10 @@ package com.columbia.viajes.controller;
 
 import com.columbia.viajes.dto.response.PaqueteResponse;
 import com.columbia.viajes.dto.request.PaqueteRequest;
-import com.columbia.viajes.model.Rol;
-import com.columbia.viajes.model.Usuario;
-import com.columbia.viajes.security.DatosToken;
 import com.columbia.viajes.security.SecurityConfig;
-import com.columbia.viajes.security.UsuarioAutenticado;
 import com.columbia.viajes.security.service.JwtService;
 import com.columbia.viajes.service.PaqueteService;
+import com.columbia.viajes.support.AutenticacionJwtPrueba;
 import jakarta.servlet.Filter;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.*;
@@ -326,16 +323,7 @@ class PaqueteImagenControllerTest {
     }
 
     private String autenticar(String nombreRol) {
-        Rol rol = new Rol();
-        rol.setNombre(nombreRol);
-        Usuario usuario = new Usuario();
-        usuario.setNombre("cuenta-prueba");
-        usuario.setContrasenia("hash-simulado");
-        usuario.setRol(rol);
-        String token = "token-de-prueba";
-        when(jwt.leerToken(token)).thenReturn(new DatosToken(usuario.getNombre(), 0));
-        when(usuarios.loadUserByUsername(usuario.getNombre())).thenReturn(new UsuarioAutenticado(usuario));
-        return token;
+        return AutenticacionJwtPrueba.autenticar(jwt, usuarios, nombreRol);
     }
 
     private MockMultipartFile archivo() {

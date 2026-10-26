@@ -2,6 +2,7 @@ package com.columbia.viajes.controller;
 
 import com.columbia.viajes.dto.request.PaqueteReservaRequest;
 import com.columbia.viajes.dto.response.PaqueteReservaResponse;
+import com.columbia.viajes.dto.response.RankingVendedorResponse;
 import com.columbia.viajes.service.PaqueteReservaService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -16,6 +17,11 @@ import org.springframework.web.bind.annotation.*;
 public class PaqueteReservaController {
 
     private final PaqueteReservaService paqueteReservaService;
+
+    @GetMapping("/ranking-vendedores")
+    public ResponseEntity<List<RankingVendedorResponse>> rankingVendedores() {
+        return ResponseEntity.ok(paqueteReservaService.rankingVendedores());
+    }
 
     @GetMapping
     public ResponseEntity<List<PaqueteReservaResponse>> listar() {

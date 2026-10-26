@@ -1,6 +1,7 @@
 package com.columbia.viajes.service;
 
 import com.columbia.viajes.dto.request.PaqueteReservaRequest;
+import com.columbia.viajes.dto.response.RankingVendedorResponse;
 import com.columbia.viajes.mapper.PaqueteReservaMapper;
 import com.columbia.viajes.model.*;
 import com.columbia.viajes.repository.*;
@@ -15,6 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mapstruct.factory.Mappers;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,6 +59,48 @@ class PaqueteReservaServiceTest {
         assertEquals(8, resultado.getFirst().turistaId());
         verify(reservas).findByTurista_Id(8);
         verifyNoMoreInteractions(reservas);
+    }
+
+    @Test
+    void duenoObtieneElRankingSinModificarElOrdenNiLosImportes() {
+        when(usuarioActual.obtener()).thenReturn(usuario(1, "Dueño", null));
+        var ranking = List.of(
+                new RankingVendedorResponse(4, "vendedor_a1", new BigDecimal("1020000.00"), 2),
+                new RankingVendedorResponse(6, "vendedor_b1", new BigDecimal("500000.00"), 3)
+        );
+        when(reservas.rankingVendedores()).thenReturn(ranking);
+
+        assertEquals(ranking, service.rankingVendedores());
+
+        verify(reservas).rankingVendedores();
+        verifyNoMoreInteractions(reservas);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Administrador", "Vendedor", "Cliente"})
+    void otrosRolesNoPuedenConsultarElRankingNiEjecutanLaConsulta(String rol) {
+        when(usuarioActual.obtener()).thenReturn(usuario(1, rol, 2));
+
+        assertThrows(AccessDeniedException.class, () -> service.rankingVendedores());
+
+        verifyNoInteractions(reservas, paquetes, turistas, usuarios);
+    }
+
+    @Test
+    void duenoSinVentasRecibeUnaListaVacia() {
+        when(usuarioActual.obtener()).thenReturn(usuario(1, "Dueño", null));
+        when(reservas.rankingVendedores()).thenReturn(List.of());
+
+        assertTrue(service.rankingVendedores().isEmpty());
+    }
+
+    @Test
+    void sinAutenticacionNoSeEjecutaLaConsultaDelRanking() {
+        when(usuarioActual.obtener()).thenThrow(new InsufficientAuthenticationException("Necesitás iniciar sesión."));
+
+        assertThrows(InsufficientAuthenticationException.class, () -> service.rankingVendedores());
+
+        verifyNoInteractions(reservas, paquetes, turistas, usuarios);
     }
 
     @Test
