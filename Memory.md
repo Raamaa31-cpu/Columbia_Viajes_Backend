@@ -277,7 +277,8 @@
 - [x] Adaptar FiltroNombreControllerTest a buscar(...) y agregar cobertura de filtros combinados, individuales y ausentes; suite completa de 209 pruebas aprobada.
 - [ ] Completar la matriz HTTP de filtros: ciudades, mayúsculas/minúsculas, espacios y todas las combinaciones no confirmadas todavía.
 - [x] Permitir al Cliente listar y consultar por ID sus propias reservas, conservando los permisos de gestión.
-- [ ] Confirmar por HTTP la consulta de reservas propias y rechazo de ajenas con Cliente, los permisos de otros roles y el bloqueo de escritura para Cliente.
+- [x] Confirmar por HTTP real la consulta de reservas propias, rechazo de ajenas/inexistentes y bloqueo de escritura para Cliente (31/10/2026).
+- [ ] Completar la matriz HTTP de reservas de los otros roles; la prueba del 31/10 se limita a Cliente y solicitudes sin autenticación válida.
 - [x] Implementar GET /api/usuarios/me con cuenta autenticada y perfil de Turista para Cliente; pruebas unitarias aprobadas.
 - [ ] Confirmar /api/usuarios/me por HTTP: Cliente con turista, gestión sin turista y sin token 401.
 
@@ -299,14 +300,15 @@
 - [x] Calcular precioReserva en el servidor con adicionales sumados y redondeo a dos decimales.
 - [ ] Confirmar creación, actualización y cálculo de precios en Postman.
 - [x] Implementar eliminación de reservas con búsqueda restringida por sucursal, void y excepción en el service.
-- [ ] Probar eliminación por HTTP: sucursal propia 204, ajena o ID inexistente 404; Administrador/Dueño pueden eliminar en cualquier sucursal; Cliente 403 y sin token 401. Comprobar que un rechazo no elimina la reserva.
+- [x] Probar eliminación por HTTP: sucursal propia 204, ajena o ID inexistente 404; Administrador/Dueño pueden eliminar en cualquier sucursal; Cliente 403 y sin token 401. Comprobar que un rechazo no elimina la reserva.
 - [ ] Verificar rechazo de tokens vencidos y de cuentas eliminadas.
 - [x] Implementar y probar cambio de contraseña del usuario autenticado, con comprobación de contraseña actual.
 - [x] Implementar y probar revocación de todos los JWT anteriores de la cuenta mediante versionAutenticacion al cambiar la contraseña.
 - [x] Definir e implementar logout global, con prueba manual de 204 y rechazo del token anterior con 401.
 - [x] Probar logout sin token y nuevo login con la misma contraseña seguido de acceso con el nuevo JWT.
 - [ ] Completar pruebas HTTP de logout con otros roles y otros tokens de la cuenta.
-- [ ] Definir renovación de JWT y revisar CORS para el frontend.
+- [ ] Definir renovación de JWT.
+- [x] Configurar CORS para http://localhost:8081 y verificar filtros/permisos con MockMvc; falta integración desde el navegador del frontend.
 - [x] Corregir la regla del listado de clientes para Vendedor a /api/usuarios/clientes.
 - [ ] Verificar por HTTP el listado de clientes como Vendedor con sucursal y los rechazos a otros roles sin permiso.
 - [x] Preparar email único en MySQL, validar duplicados en creación/edición de turistas y eliminar Cliente de prueba sin Turista.
@@ -336,7 +338,7 @@
 1. Leer Agents.md y este Memory.md, y revisar el código actual antes de proponer cambios.
    - Último avance: ranking para Dueno completo en GET /api/paquetes-reservas/ranking-vendedores con DTO tipado, service de lectura y regla exacta exclusiva antes de matchers generales. Suite completa de 222 pruebas aprobada. Se verificaron por HTTP real consulta 200, Vendedor/Cliente 403, sin token/invalido 401, sumas, agrupacion y desempate por ID usando reservas temporales ya retiradas. Administrador 403 esta probado en MVC con rol simulado. Solo queda la reserva original; no volver a implementar ranking, imagenes ni busquedas. Elegir el siguiente pendiente segun el usuario y mostrar bloques modificados.
 2. Probar en Postman las validaciones cruzadas ya implementadas: username igual a email ajeno y email igual a username ajeno deben generar 400 sin crear la cuenta. Repetir al editar, permitiendo conservar valores propios. Luego probar login unificado del Cliente por username/email, contraseña incorrecta y JWT emitido por email. No repetir código: AuthRequest usa identificador/contraseña, provider usa loadUserByIdentificador y el filtro loadUserByUsername canónico. Las pruebas de login, validador, registro y turistas ya pasaron; el contexto también inicia con MySQL. Mostrar siempre bloques modificados y mantener pasos pequeños. Siguen pendientes ID compartido, rollback real ante fallo posterior al INSERT, gestión y jerarquía por HTTP.
-3. Completar las pruebas manuales de DELETE /api/paquetes-reservas/{id}. Usar reservas de prueba de dos sucursales, confirmar estados y ausencia de borrado al rechazar. Si aparece 401 en vez de 404, investigar el despacho de errores.
+3. DELETE /api/paquetes-reservas/{id} verificado por HTTP real el 31/10/2026 para los cuatro roles y dos sucursales (ver cierre al final). No volver a implementarlo. El problema observado en sucursales sigue siendo un pendiente separado.
 4. Confirmar en Postman creación, actualización y precios: 0/10/20 % sobre el precio base; al editar una reserva de un compañero conservar vendedorId; impedir cambio a un paquete de otra sucursal.
 5. Verificar token vencido y token de usuario eliminado; probar el listado de clientes como Vendedor (ruta ya corregida), completar pruebas de logout con otros roles y dos tokens, definir permisos adicionales del Cliente, revisar rutas sin regla específica (actualmente anyRequest().authenticated()), y decidir renovación y CORS cuando corresponda.
 6. Ranking del Dueño implementado y verificado para el alcance acordado; no esta pendiente. Revisar que los turistas esten vinculados a usuarios con rol Cliente al trabajar futuros cambios de cuentas/perfiles.
@@ -350,3 +352,35 @@
 - Preferencia del usuario del 13/10: cada vez que se modifique código, mostrar el archivo y el bloque modificado (antes/después cuando ayude), explicar qué hace y por qué, e indicar cómo se verificó y qué queda pendiente. No limitarse a decir que el cambio está hecho.
 - Se explicaron BigDecimal, factor inicial 1 (=100 %), adicional 0.10 y setScale(2, HALF_UP). Ejemplo correcto: 25.678 se redondea a 25.68.
 - Usa NetBeans en Windows 10 y Postman; no registrar JWT_SECRET, tokens ni credenciales nuevas en esta memoria.
+
+## Reservas del Cliente — Verificación HTTP real — 31/10/2026
+- Se agregó ReservasClienteHttpTest, optativa mediante -Dpruebas.http.local=true. Inicia la aplicación en puerto aleatorio, usa HTTP de red, filtros, service, repositorios, MySQL y firma/validación JWT reales, sin mocks. Emite los tokens con JwtService para cuentas reales; no prueba login ni contraseñas.
+- Requiere MySQL local, JWT_SECRET y una reserva existente cuyo propietario sea Cliente. Crea un Usuario/Turista Cliente y una reserva temporales; los INSERT de preparación no prueban el alta por API. Las escrituras HTTP apuntan exclusivamente a la reserva temporal.
+- Verifica listado/detalle propio 200; exclusión mutua entre dos Clientes; detalle ajeno en ambos sentidos 404; ID inexistente 404; POST/PUT/DELETE del Cliente 403 con cuerpo válido cuando corresponde; GET listado/detalle y las tres escrituras sin token 401; ambos GET con token inválido 401.
+- Compara todas las columnas de todas las reservas antes y después de los rechazos. @AfterEach elimina reserva, turista y cuenta temporales y compara las reservas restantes con la foto inicial. Ambas ejecuciones terminaron con limpieza comprobada. No se cambiaron datos preexistentes, contraseñas, permisos, tablas, schema.sql ni imágenes. Los AUTO_INCREMENT de usuarios y reservas avanzan por los INSERT temporales; no se reinician.
+- Ejecución dirigida: .\mvnw.cmd "-Dtest=ReservasClienteHttpTest" "-Dpruebas.http.local=true" test: 1 prueba aprobada con múltiples comprobaciones HTTP. Suite completa: .\mvnw.cmd "-Dpruebas.http.local=true" test: BUILD SUCCESS, 223 pruebas en 13 clases, cero fallos, errores y omitidas. Sin la propiedad, la nueva prueba se omite intencionalmente para que un test normal no cree datos temporales.
+- El primer intento no compiló por el import de LocalServerPort; se reemplazó por @Value("${local.server.port}") exclusivamente en la prueba y luego ambas ejecuciones pasaron.
+- Los 404 del Cliente se conservaron por HTTP; esto no cierra el pendiente de DELETE de gestión con ResponseStatusException ni el error observado en sucursales. Siguen pendientes la matriz de otros roles, login, perfil y demás temas del backlog. README actualizado. Próximo paso sugerido: eliminación por sucursal, por separado.
+
+
+## Eliminación de reservas — Cierre HTTP real — 31/10/2026
+- La revisión confirmó que eliminar ya reutiliza buscarReservaAccesible, igual que actualizar. Se conserva void, @Transactional, ResponseStatusException 404 y ResponseEntity<Void> con 204; no fue necesario modificar código productivo ni permisos.
+- Se amplió ReservasClienteHttpTest con eliminacionRespetaRolesYSucursalDelPaquetePorHttpReal, reutilizando los métodos de HTTP, firma JWT e inserción existentes. Es optativa con -Dpruebas.http.local=true y requiere una reserva existente y dos sucursales. No prueba el login.
+- HTTP real contra MySQL y filtros/service/repositorios reales: Dueño y Administrador eliminan en ambas sucursales (204); Vendedor elimina una reserva de un compañero de su sucursal (204), otra sucursal devuelve 404; Vendedor de la segunda sucursal también elimina allí (204). ID inexistente para los tres roles de gestión y repetición de borrado devuelven 404. Cliente y Vendedor sin sucursal reciben 403; sin token y token inválido reciben 401.
+- Se comparan todas las columnas de todas las reservas tras los rechazos; cada 204 comprueba cuerpo vacío y ausencia del registro en MySQL. Se crean cuentas, un paquete sin imagen y reservas temporales; @AfterEach los elimina incluso si falla una comprobación. Al finalizar se compara el conjunto de reservas con el original. Se preservaron las reservas preexistentes, las contraseñas, permisos, esquema e imágenes. Los AUTO_INCREMENT avanzan por la preparación temporal; ejecutar sin escrituras concurrentes.
+- Verificación dirigida: .\mvnw.cmd "-Dtest=ReservasClienteHttpTest,PaqueteReservaServiceTest" "-Dpruebas.http.local=true" test → BUILD SUCCESS, 32 pruebas (2 HTTP y 30 del servicio), cero fallos, errores y omitidas. No se repitió la suite completa; su ejecución anterior de 223 casos corresponde al paso previo.
+- README actualizado con contrato y matriz de eliminación. Se cierra únicamente el pendiente de eliminación: creación/edición/precios y el caso de errores de sucursales siguen pendientes. Los 404 de DELETE se conservaron por HTTP, sin cambiar SecurityConfig ni ManejadorErrores.
+
+
+## CORS para frontend local — 31/10/2026
+- SecurityConfig registra corsConfigurationSource para /api/**: origen exacto http://localhost:8081; métodos GET, POST, PUT, DELETE y OPTIONS; encabezados Authorization y Content-Type. La cadena activa .cors(...) antes de la autenticación. No se habilitan credenciales por cookies; se conserva JWT en Authorization.
+- CorsControllerTest agrega 14 casos con MockMvc y SecurityConfig/filtros reales, simulando JwtService, UserDetailsService y PaqueteReservaService. Comprueba preflight sin JWT para los cinco métodos, rechazo de otro dominio/puerto/protocolo, método y encabezado no permitidos, solicitud real de origen ajeno rechazada y origen permitido con ausencia de token 401, Cliente 403 y Dueño 204.
+- Verificación: .\mvnw.cmd "-Dtest=CorsControllerTest,RankingVendedoresControllerTest,PaqueteImagenControllerTest" test → BUILD SUCCESS, 45 casos, cero fallos, errores y omitidos. Compilación incluida. No se ejecutó la suite completa ni se probó desde el navegador del frontend. Sin escrituras de MySQL ni cambios de esquema, imágenes o reglas de roles/sucursal.
+- README actualizado. CORS local implementado; al desplegar definir el origen correspondiente. No confundir el origen del frontend con el puerto donde escucha el backend. No repetir esta implementación al continuar.
+
+
+## Sucursal obligatoria para Vendedor — 31/10/2026
+- [x] Exigir sucursal al crear un Vendedor y evitar quitarla al editar. UsuarioService.obtenerSucursalVendedor comparte la condición para ambas operaciones: idSucursal null con rol Vendedor lanza IllegalArgumentException, convertida en HTTP 400 por el manejador existente. Conserva búsqueda de sucursal existente y rechazo de sucursal para otros roles.
+- Se revisó schema.sql: id_sucursal sigue nullable porque los otros roles no tienen sucursal. Sin cambios de esquema ni datos existentes.
+- RegistroClienteServiceTest adapta los casos de creación para usar sucursal válida y agrega cuatro casos: creación sin sucursal por Administrador/Dueño, edición sin sucursal sin modificar ni guardar la cuenta y creación con sucursal inexistente. Conserva las pruebas de jerarquía, perfiles y nombres duplicados con datos válidos para no enmascarar sus validaciones.
+- Verificación: .\mvnw.cmd "-Dtest=RegistroClienteServiceTest,AuthRegistroControllerTest" test → BUILD SUCCESS, 49 pruebas (46 del servicio y tres del controller), sin fallos, errores ni omitidas. Sin MySQL ni escrituras de datos; no se verificó este cambio por HTTP real ni se repitió la suite completa. README actualizado.

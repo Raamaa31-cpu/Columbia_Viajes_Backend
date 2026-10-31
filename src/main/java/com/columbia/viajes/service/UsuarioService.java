@@ -230,6 +230,9 @@ public class UsuarioService {
     }
 
     private Sucursal obtenerSucursalVendedor(Integer idSucursal, Rol rol){
+        if (idSucursal == null && "Vendedor".equalsIgnoreCase(rol.getNombre())) {
+            throw new IllegalArgumentException("La sucursal es obligatoria para un Vendedor.");
+        }
         if (idSucursal != null) {
             if (!"Vendedor".equalsIgnoreCase(rol.getNombre())) {
                 throw new IllegalArgumentException("Solo los usuarios con rol Vendedor pueden tener una sucursal asignada.");

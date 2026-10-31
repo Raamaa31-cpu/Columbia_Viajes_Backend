@@ -503,7 +503,7 @@ En Linux/macOS, reemplazá `.\mvnw.cmd` por `./mvnw`.
 - `RankingVendedoresControllerTest`: contiene siete casos MVC con SecurityConfig y filtros reales, simulando JWT, usuarios y service; verifica respuesta/orden, lista vacía, rechazo de Administrador/Vendedor/Cliente, ausencia de token y token inválido. La autenticación simulada se comparte con las pruebas de imágenes mediante AutenticacionJwtPrueba.
 - `FiltroNombreControllerTest`: contiene 26 casos con controladores, services y mappers reales, y repositorios simulados. Ciudades conserva `findAll`/`findByNombreContainingIgnoreCase`; paquetes y hoteles usan `buscar(...)`. Verifica parámetros individuales y combinados, orden de ciudad/hotel, espacios en el nombre, filtros ausentes/vacíos, respuestas vacías e IDs no numéricos rechazados con `400` antes de consultar. Estos casos comprueban el recorrido HTTP simulado y la transmisión de filtros; no ejecutan las consultas SQL contra datos reales.
 - `TuristaServiceTest`: contiene trece pruebas de unicidad y coincidencias cruzadas de email, conservación de la relación al editar, rechazo de perfiles duplicados y creación únicamente para un Cliente existente; usa mocks y no necesita MySQL ni `JWT_SECRET`.
-- `RegistroClienteServiceTest`: contiene 42 casos de perfil propio, registro, perfiles obligatorios, coincidencias cruzadas de username/email, jerarquía de creación/edición/eliminación y conservación de contraseña/versión. Usa mocks; todavía falta verificar la reversión real de ambos guardados con MySQL.
+- `RegistroClienteServiceTest`: contiene 46 casos de perfil propio, registro, perfiles obligatorios, coincidencias cruzadas de username/email, jerarquía de creación/edición/eliminación y conservación de contraseña/versión. Usa mocks; todavía falta verificar la reversión real de ambos guardados con MySQL.
 - `AuthRegistroControllerTest`: contiene tres pruebas MockMvc standalone de respuesta 201 sin contraseña y validación del perfil anidado. No utiliza MySQL ni la cadena de filtros de seguridad.
 - `AuthServiceTest`: contiene 17 casos con `AuthenticationManager`, `DaoAuthenticationProvider` y BCrypt reales, repositorios simulados y emisión de JWT simulada. Comprueba acceso por email/username, rechazo de contraseña incorrecta, restricciones por rol, identificadores ambiguos y carga canónica del usuario para JWT.
 - `ValidadorIdentificadoresServiceTest`: contiene doce casos de valores disponibles, duplicados, coincidencias entre tablas y exclusión de la propia cuenta.
@@ -524,14 +524,81 @@ java -jar target/viajes-0.0.1-SNAPSHOT.jar
 
 - Completar pruebas de logout con otros roles y otros tokens de la cuenta.
 - Definir renovación de JWT y permisos adicionales del Cliente.
-- Revisar CORS para integrar el frontend.
+- Probar la integración del frontend en navegador con CORS ya configurado para `http://localhost:8081`; definir el origen de producción al desplegar.
 - Completar las pruebas del registro: se confirmó manualmente el alta y login por nombre; faltan el ID compartido y la reversión por errores con MySQL.
 - Probar en Postman el login unificado del Cliente con username/email y sus rechazos; están aprobadas las pruebas automatizadas y la carga del contexto de Spring con MySQL.
 - Probar por HTTP las coincidencias cruzadas de username/email al crear y editar. Se validan antes del guardado; una protección global atómica entre tablas ante solicitudes concurrentes requeriría una estrategia adicional.
 - Verificar por HTTP la creación conjunta desde gestión y la jerarquía de creación/edición/eliminación implementada en el service.
 - Verificar por HTTP el listado de clientes para Vendedor; el matcher de `/api/usuarios/clientes` ya está corregido.
 - Verificar por HTTP la conservación del Usuario al editar perfiles de turista.
-- Completar pruebas HTTP de creación, edición, precios y eliminación de reservas, y de tokens vencidos y cuentas eliminadas.
-- Investigar un caso observado de respuesta `401` en lugar de un error de datos esperado durante el despacho interno de errores. El comportamiento HTTP de eliminación con `ResponseStatusException` sigue pendiente de verificación.
+- Completar pruebas HTTP de creación, edición y precios de reservas, y de tokens vencidos y cuentas eliminadas. La eliminación quedó verificada el 31/10/2026.
+- Investigar un caso observado de respuesta `401` en lugar de un error de datos esperado durante el despacho interno de errores. Los `404` de eliminación con `ResponseStatusException` se verificaron por HTTP real el 31/10/2026; el caso observado en sucursales sigue pendiente.
 
 El avance y las verificaciones detalladas se registran en [Memory.md](Memory.md). Las convenciones y el flujo de trabajo del proyecto están en [Agents.md](Agents.md).
+
+## Prueba HTTP de reservas del Cliente — 31/10/2026
+
+Se agregó `ReservasClienteHttpTest`, una prueba optativa contra el servidor y MySQL reales, sin mocks:
+
+```powershell
+.\mvnw.cmd "-Dtest=ReservasClienteHttpTest" "-Dpruebas.http.local=true" test
+```
+
+Requiere MySQL local, el esquema actual, `JWT_SECRET` y al menos una reserva existente de un Cliente. Inicia el servidor en un puerto libre. Crea una cuenta con perfil y una reserva temporales y las elimina al terminar; los contadores AUTO_INCREMENT avanzan. Ejecutarla sin otras escrituras concurrentes para poder comparar el estado de las reservas. Sin la propiedad `pruebas.http.local`, se omite intencionalmente.
+
+Comprueba listado/detalle propio `200`, aislamiento entre dos Clientes y detalle ajeno/inexistente `404`, bloqueo de POST/PUT/DELETE como Cliente `403`, consultas/escrituras sin token `401` y consultas con token inválido `401`. Compara los registros completos antes y después de los rechazos y verifica que, tras la limpieza, se conservan las reservas originales. Los intentos de edición/borrado apuntan a la reserva temporal.
+
+Los JWT se emiten con `JwtService` y se validan realmente al recibir cada solicitud; esta prueba no verifica el login. Los datos temporales se preparan mediante SQL, por lo que tampoco verifica la creación por API ni reemplaza las pruebas pendientes de permisos de gestión.
+
+**Resultado:** prueba dirigida aprobada; suite completa con `.\mvnw.cmd "-Dpruebas.http.local=true" test`: **223 pruebas en 13 clases, cero fallos, errores y omitidas**. No se modificó código productivo, permisos, esquema, imágenes ni datos preexistentes. Los casos `404` probados no se transformaron en `401`; sigue pendiente investigar el caso de sucursales y probar eliminación por sucursal.
+
+
+## Eliminación de reservas — verificada el 31/10/2026
+
+```http
+DELETE /api/paquetes-reservas/{id}
+Authorization: Bearer <token>
+```
+
+No recibe cuerpo. El borrado exitoso devuelve `204` sin contenido y elimina la reserva de la base.
+
+| Actor o situación | Resultado |
+| --- | --- |
+| Dueño / Administrador, reserva de cualquier sucursal | `204` |
+| Vendedor, paquete de su sucursal, incluso venta de un compañero | `204` |
+| Vendedor, paquete de otra sucursal | `404` |
+| ID inexistente o reserva ya eliminada, para gestión habilitada | `404` |
+| Cliente / Vendedor sin sucursal | `403` |
+| Sin token o token inválido | `401` |
+
+Se reutiliza `buscarReservaAccesible`, compartido con la actualización. El filtro usa la sucursal del **paquete**, no la identidad del vendedor que registró la venta. Se conserva el método `void` transaccional y el manejo existente de `ResponseStatusException`; no hubo cambios productivos ni de permisos.
+
+Se amplió `ReservasClienteHttpTest` para probar esta matriz por HTTP real, con MySQL y JWT reales, sin mocks. Reutiliza la infraestructura de la prueba de Cliente. Requiere una reserva existente y dos sucursales; prepara cuentas, un paquete sin imagen y reservas temporales y los retira al terminar. Comprueba que los rechazos conservan todas las reservas, que cada `204` borra el registro y que las reservas originales permanecen intactas tras la limpieza. No prueba el login ni la creación por API. Ejecutar sin otras escrituras concurrentes; los AUTO_INCREMENT avanzan.
+
+```powershell
+.\mvnw.cmd "-Dtest=ReservasClienteHttpTest,PaqueteReservaServiceTest" "-Dpruebas.http.local=true" test
+```
+
+Resultado: **32 pruebas aprobadas**, dos escenarios HTTP y 30 casos del servicio; cero fallos, errores y omitidas. Requiere MySQL local, esquema actual y `JWT_SECRET`. Sin la propiedad optativa, los dos escenarios HTTP se omiten. No se repitió la suite completa en este paso. Esta verificación cierra el pendiente de eliminación mencionado en las notas históricas anteriores.
+
+
+## CORS del frontend local
+
+Se permite el origen exacto `http://localhost:8081` para las rutas `/api/**`, con métodos `GET`, `POST`, `PUT`, `DELETE` y `OPTIONS`, y encabezados `Authorization` y `Content-Type`. Se configura centralmente en `SecurityConfig` y se integra con Spring Security para resolver la consulta previa sin exigir JWT.
+
+El frontend debe enviar el JWT en `Authorization: Bearer <token>` para las rutas protegidas. No se habilitan cookies con credenciales. CORS conserva los permisos por rol y sucursal. `http://localhost:8081` identifica al frontend; no cambia el puerto del backend. Otros puertos, protocolos o dominios no están autorizados como orígenes CORS.
+
+Verificación del 31/10/2026:
+
+```powershell
+.\mvnw.cmd "-Dtest=CorsControllerTest,RankingVendedoresControllerTest,PaqueteImagenControllerTest" test
+```
+
+45 pruebas aprobadas (14 de CORS, siete del ranking y 24 de imágenes). MockMvc utiliza la cadena de seguridad real con JWT/usuarios/services simulados; no requiere MySQL ni modifica datos. Falta comprobar la integración desde el navegador del frontend. No se repitió la suite completa.
+
+
+## Sucursal obligatoria para vendedores
+
+Al crear o editar una cuenta con rol `Vendedor`, `idSucursal` es obligatorio y debe identificar una sucursal existente. Si falta o no existe, se rechaza con `400` antes de guardar; no se puede quitar la sucursal al editar un Vendedor. Los otros roles siguen sin admitir sucursal. La regla se comparte en `UsuarioService.obtenerSucursalVendedor`; no cambia permisos ni modifica cuentas existentes.
+
+Verificado el 31/10/2026 mediante `.\mvnw.cmd "-Dtest=RegistroClienteServiceTest,AuthRegistroControllerTest" test`: 49 pruebas aprobadas (46 del servicio y tres del controller), con repositorios simulados, sin MySQL. Falta comprobación por HTTP real; no se repitió la suite completa.

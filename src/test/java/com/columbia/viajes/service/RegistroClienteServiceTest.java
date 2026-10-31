@@ -7,6 +7,7 @@ import com.columbia.viajes.dto.request.UsuarioRequest;
 import com.columbia.viajes.dto.response.TuristaResponse;
 import com.columbia.viajes.mapper.UsuarioMapper;
 import com.columbia.viajes.model.Rol;
+import com.columbia.viajes.model.Sucursal;
 import com.columbia.viajes.model.Turista;
 import com.columbia.viajes.model.Usuario;
 import com.columbia.viajes.repository.RolRepository;
@@ -39,6 +40,7 @@ class RegistroClienteServiceTest {
     private BCryptPasswordEncoder encoder;
     private UsuarioService service;
     private Rol rolCliente;
+    private SucursalRepository sucursales;
 
     @BeforeEach
     void preparar() {
@@ -48,7 +50,8 @@ class RegistroClienteServiceTest {
         turistas = mock(TuristaService.class);
         perfiles = mock(TuristaRepository.class);
         encoder = new BCryptPasswordEncoder(4);
-        service = new UsuarioService(usuarios, roles, mock(SucursalRepository.class),
+        sucursales = mock(SucursalRepository.class);
+        service = new UsuarioService(usuarios, roles, sucursales,
                 Mappers.getMapper(UsuarioMapper.class), encoder, usuarioActual, turistas,
                 new ValidadorIdentificadoresService(usuarios, perfiles));
         rolCliente = rol(77, "Cliente");
@@ -168,12 +171,14 @@ class RegistroClienteServiceTest {
         Rol rolVendedor = rol(2, "Vendedor");
         when(roles.findById(2)).thenReturn(Optional.of(rolVendedor));
 
-        var response = service.crear(new UsuarioRequest("vendedor_nuevo", "ClavePrueba123", 2, null, null));
+        Sucursal sucursal = prepararSucursal();
+        var response = service.crear(new UsuarioRequest("vendedor_nuevo", "ClavePrueba123", 2, 3, null));
 
         assertEquals("Vendedor", response.rolNombre());
         ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
         verify(usuarios).save(captor.capture());
         assertTrue(encoder.matches("ClavePrueba123", captor.getValue().getContrasenia()));
+        assertSame(sucursal, captor.getValue().getSucursal());
         verifyNoInteractions(turistas);
     }
 
@@ -210,7 +215,9 @@ class RegistroClienteServiceTest {
         when(usuarioActual.obtener()).thenReturn(actor(creador));
         when(roles.findById(42)).thenReturn(Optional.of(rol(42, destino)));
         TuristaRequest perfil = "Cliente".equals(destino) ? request().turista() : null;
-        UsuarioRequest datos = new UsuarioRequest("cuenta_nueva", "ClavePrueba123", 42, null, perfil);
+        Integer sucursal = "Vendedor".equals(destino) ? 3 : null;
+        if (permitido && sucursal != null) prepararSucursal();
+        UsuarioRequest datos = new UsuarioRequest("cuenta_nueva", "ClavePrueba123", 42, sucursal, perfil);
 
         if (permitido) {
             assertEquals(destino, service.crear(datos).rolNombre());
@@ -240,9 +247,10 @@ class RegistroClienteServiceTest {
     @Test
     void creacionDeVendedorConPerfilDeTuristaSeRechaza() {
         when(roles.findById(2)).thenReturn(Optional.of(rol(2, "Vendedor")));
+        prepararSucursal();
 
         assertThrows(IllegalArgumentException.class, () -> service.crear(
-                new UsuarioRequest("vendedor_nuevo", "ClavePrueba123", 2, null, request().turista())));
+                new UsuarioRequest("vendedor_nuevo", "ClavePrueba123", 2, 3, request().turista())));
 
         verify(usuarios, never()).save(any());
         verifyNoInteractions(turistas);
@@ -364,15 +372,62 @@ class RegistroClienteServiceTest {
     @Test
     void crearDesdeGestionRechazaNombreQueYaEsEmailAjeno() {
         when(roles.findById(2)).thenReturn(Optional.of(rol(2, "Vendedor")));
+        prepararSucursal();
         Turista perfilAjeno = new Turista();
         perfilAjeno.setId(20);
         when(perfiles.findByEmailIgnoreCase("ajeno@example.com")).thenReturn(Optional.of(perfilAjeno));
 
         assertThrows(IllegalArgumentException.class, () -> service.crear(
-                new UsuarioRequest("ajeno@example.com", "ClavePrueba123", 2, null, null)));
+                new UsuarioRequest("ajeno@example.com", "ClavePrueba123", 2, 3, null)));
 
         verify(usuarios, never()).save(any());
         verifyNoInteractions(turistas);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Administrador", "Dueño"})
+    void crearVendedorSinSucursalSeRechazaAntesDeGuardar(String creador) {
+        when(usuarioActual.obtener()).thenReturn(actor(creador));
+        when(roles.findById(2)).thenReturn(Optional.of(rol(2, "Vendedor")));
+
+        var error = assertThrows(IllegalArgumentException.class, () -> service.crear(
+                new UsuarioRequest("vendedor_nuevo", "ClavePrueba123", 2, null, null)));
+
+        assertEquals("La sucursal es obligatoria para un Vendedor.", error.getMessage());
+        verify(usuarios, never()).save(any());
+        verifyNoInteractions(sucursales, turistas);
+    }
+
+    @Test
+    void editarVendedorNoPermiteQuitarLaSucursalNiModificarLaCuenta() {
+        Usuario existente = actor("Vendedor");
+        existente.setNombre("vendedor_original");
+        Sucursal sucursal = prepararSucursal();
+        existente.setSucursal(sucursal);
+        when(usuarios.findById(100)).thenReturn(Optional.of(existente));
+        when(roles.findById(2)).thenReturn(Optional.of(existente.getRol()));
+
+        assertThrows(IllegalArgumentException.class, () -> service.actualizar(100,
+                new UsuarioActualizacionRequest("nombre_nuevo", 2, null)));
+
+        assertEquals("vendedor_original", existente.getNombre());
+        assertSame(sucursal, existente.getSucursal());
+        verify(usuarios, never()).save(any());
+    }
+
+    @Test
+    void vendedorConSucursalInexistenteNoSeGuarda() {
+        when(roles.findById(2)).thenReturn(Optional.of(rol(2, "Vendedor")));
+        assertThrows(IllegalArgumentException.class, () -> service.crear(
+                new UsuarioRequest("vendedor_nuevo", "ClavePrueba123", 2, 999, null)));
+        verify(usuarios, never()).save(any());
+    }
+
+    private Sucursal prepararSucursal() {
+        Sucursal sucursal = new Sucursal();
+        sucursal.setId(3);
+        when(sucursales.findById(3)).thenReturn(Optional.of(sucursal));
+        return sucursal;
     }
 
     private Rol rol(Integer id, String nombre) {
